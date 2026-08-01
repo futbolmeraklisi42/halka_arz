@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
 import sqlite3
+
+# yfinance yüklenemezse uygulamanın çökmesini engellemek için güvenli import
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -57,14 +63,15 @@ init_db()
 
 # ----------------- CANLI BİST FİYAT ÇEKİCİ -----------------
 def get_bist_price(symbol, fallback_maliyet):
-    try:
-        ticker = yf.Ticker(f"{symbol}.IS")
-        data = ticker.history(period="1d")
-        if not data.empty:
-            return round(data['Close'].iloc[-1], 2)
-    except:
-        pass
-    # Canlı veri çekilemezse geçici varsayılan fiyat göster (Test amaçlı)
+    if YFINANCE_AVAILABLE:
+        try:
+            ticker = yf.Ticker(f"{symbol}.IS")
+            data = ticker.history(period="1d")
+            if not data.empty:
+                return round(data['Close'].iloc[-1], 2)
+        except:
+            pass
+    # Canlı veri çekilemezse varsayılan %10 tavanlı test fiyatı
     return round(fallback_maliyet * 1.10, 2)
 
 # ----------------- MODERN ARAYÜZ TASARIMI (CSS) -----------------
@@ -91,6 +98,9 @@ st.markdown("""
 # ----------------- BAŞLIK VE METRİKLER -----------------
 st.title("🚀 Halka Arz Portföyüm")
 st.caption("Canlı Borsa & Çoklu Hesap Otomatik Takip Paneli")
+
+if not YFINANCE_AVAILABLE:
+    st.warning("⚠️ `yfinance` kütüphanesi henüz yüklenmediği için fiyatlar simülasyon olarak gösteriliyor. `requirements.txt` dosyasını kontrol edin.")
 
 df_portfoy = verileri_getir()
 
@@ -135,7 +145,7 @@ with st.expander("➕ Yeni Halka Arz Ekle", expanded=False):
             else:
                 st.error("Lütfen Hisse Kodu ve Şirket Adını boş bırakmayın.")
 
-# ----------------- HİSSE LİSTESİ VE DUMANLAR -----------------
+# ----------------- HİSSE LİSTESİ VE KARTLAR -----------------
 st.subheader("📌 Aktif Hisselerim")
 
 if df_portfoy.empty:
