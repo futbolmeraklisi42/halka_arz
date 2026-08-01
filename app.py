@@ -11,7 +11,7 @@ except ImportError:
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
-    page_title="Finans & Halka Arz Paneli",
+    page_title="Finans & Halka Arz Portalı",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -22,7 +22,7 @@ def init_db():
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
     
-    # Halka Arz Tablosu
+    # Aktif & Satılan Portföy Tablosu
     c.execute('''
         CREATE TABLE IF NOT EXISTS portfoy (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,12 +36,25 @@ def init_db():
         )
     ''')
     
-    # Eski veritabanlarında satis_fiyati kolonu yoksa otomatik ekle (Migration)
+    # PRAGMA Migration
     c.execute("PRAGMA table_info(portfoy)")
     columns = [column[1] for column in c.fetchall()]
     if "satis_fiyati" not in columns:
         c.execute("ALTER TABLE portfoy ADD COLUMN satis_fiyati REAL DEFAULT 0.0")
     
+    # Gelecek Halka Arzlar Tablosu
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS gelecek_arzlar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kod TEXT NOT NULL,
+            ad TEXT NOT NULL,
+            fiyat REAL NOT NULL,
+            talep_tarihi TEXT,
+            islem_tarihi TEXT,
+            durum TEXT DEFAULT 'Taslak' -- 'Taslak', 'Talep Toplanıyor', 'İşlem Başladı'
+        )
+    ''')
+
     # Borç & Kredi Tablosu
     c.execute('''
         CREATE TABLE IF NOT EXISTS borclar (
@@ -91,6 +104,30 @@ def hisse_sil(hisse_id):
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
     c.execute("DELETE FROM portfoy WHERE id = ?", (hisse_id,))
+    conn.commit()
+    conn.close()
+
+# Database İşlemleri - Gelecek Arzlar
+def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
+    conn = sqlite3.connect("halka_arz.db")
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO gelecek_arzlar (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum))
+    conn.commit()
+    conn.close()
+
+def gelecek_arzlari_getir():
+    conn = sqlite3.connect("halka_arz.db")
+    df = pd.read_sql_query("SELECT * FROM gelecek_arzlar", conn)
+    conn.close()
+    return df
+
+def gelecek_arz_sil(arz_id):
+    conn = sqlite3.connect("halka_arz.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM gelecek_arzlar WHERE id = ?", (arz_id,))
     conn.commit()
     conn.close()
 
@@ -166,43 +203,21 @@ st.markdown("""
         border-radius: 15px;
         border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .badge-tavan {
-        background-color: #059669;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: bold;
-    }
-    .badge-satildi {
-        background-color: #64748b;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-    }
-    .badge-kredi {
-        background-color: #0284c7;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-    }
-    .badge-kisisel {
-        background-color: #d97706;
-        color: white;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-    }
+    .badge-tavan { background-color: #059669; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .badge-satildi { background-color: #64748b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+    .badge-kredi { background-color: #0284c7; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+    .badge-kisisel { background-color: #d97706; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+    .badge-taslak { background-color: #6b7280; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+    .badge-talep { background-color: #f59e0b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .badge-islem { background-color: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------- TAB YAPISI -----------------
-tab1, tab2 = st.tabs(["🚀 Halka Arz Portföyü", "💳 Borç & Kredi Takip"])
+tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "📅 Halka Arz Takvimi", "💳 Borç & Kredi Takip"])
 
 # =========================================================
-# TAB 1: HALKA ARZ TAKİP (AKTİF VE SATILANLAR)
+# TAB 1: HALKA ARZ PORTFÖYÜ
 # =========================================================
 with tab1:
     st.title("🚀 Halka Arz Portföyüm")
@@ -210,7 +225,6 @@ with tab1:
     df_aktif = verileri_getir_halka_arz('Aktif')
     df_satilan = verileri_getir_halka_arz('Satildi')
 
-    # Aktif Portföy Hesapları
     toplam_yatirilan_aktif = 0.0
     toplam_guncel_aktif = 0.0
     if not df_aktif.empty:
@@ -222,7 +236,6 @@ with tab1:
 
     potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
 
-    # Satılan Hisseler (Gerçekleşen Kâr) Hesapları
     gerceklesen_kar = 0.0
     if not df_satilan.empty:
         for _, row in df_satilan.iterrows():
@@ -231,7 +244,6 @@ with tab1:
             satis_tutar = toplam_lot * row['satis_fiyati']
             gerceklesen_kar += (satis_tutar - maliyet_tutar)
 
-    # Üst Özet Kartları
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Aktif Yatırılan", f"₺{toplam_yatirilan_aktif:,.2f}")
     col2.metric("Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
@@ -240,7 +252,7 @@ with tab1:
 
     st.divider()
 
-    with st.expander("➕ Yeni Halka Arz Ekle", expanded=False):
+    with st.expander("➕ Manuel Halka Arz Ekle", expanded=False):
         with st.form("yeni_arz_formu", clear_on_submit=True):
             col_f1, col_f2 = st.columns(2)
             f_kod = col_f1.text_input("Hisse Kodu (Örn: BINBN):").upper().strip()
@@ -257,13 +269,9 @@ with tab1:
                     veri_ekle_halka_arz(f_kod, f_ad, f_hesap, f_lot, f_maliyet)
                     st.success(f"✅ {f_kod} başarıyla eklendi!")
                     st.rerun()
-                else:
-                    st.error("Lütfen Hisse Kodu ve Şirket Adını doldurun.")
 
-    # AKTİF / SATILAN TABLARI (İÇ TAB)
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan & Geçmiş Hisseler"])
 
-    # 1. SUB-TAB: AKTİF HİSSELER
     with sub_tab1:
         if df_aktif.empty:
             st.info("Şu an aktif portföyünde hisse bulunmuyor.")
@@ -311,7 +319,6 @@ with tab1:
                             st.toast(f"{kod} silindi.")
                             st.rerun()
 
-    # 2. SUB-TAB: SATILAN HİSSELER
     with sub_tab2:
         if df_satilan.empty:
             st.info("Henüz satışını yaptığın bir hisse bulunmuyor.")
@@ -352,9 +359,87 @@ with tab1:
                             st.rerun()
 
 # =========================================================
-# TAB 2: BORÇ & KREDİ TAKİP
+# TAB 2: GELECEK HALKA ARZLAR VE TAKVİM
 # =========================================================
-with tab2:
+with tab3_temp := tab2:
+    st.title("📅 Gelecek Halka Arzlar & Takvim")
+    st.caption("Yaklaşan halka arzları, talep toplama ve borsa işlem tarihlerini buradan takip edebilirsin.")
+
+    df_gelecek = gelecek_arzlari_getir()
+
+    with st.expander("➕ Gelecek Halka Arz Kaydı Ekle", expanded=False):
+        with st.form("yeni_gelecek_arz", clear_on_submit=True):
+            cg1, cg2 = st.columns(2)
+            g_kod = cg1.text_input("Hisse Kodu (Belirsizse Taslak yaz):").upper().strip()
+            g_ad = cg2.text_input("Şirket Adı:")
+            
+            cg3, cg4, cg5 = st.columns(3)
+            g_fiyat = cg3.number_input("Halka Arz Fiyatı (₺):", min_value=0.0, value=15.0, step=0.5)
+            g_talep = cg4.text_input("Talep Toplama Tarihi (Örn: 12-13 Ağustos):")
+            g_islem = cg5.text_input("İşlem Tarihi (Örn: 18 Ağustos):")
+            
+            g_durum = st.selectbox("Arz Durumu:", ["Taslak (SPK Bekliyor)", "Talep Toplanıyor", "İşlem Tarihi Belli Oldu"])
+            
+            g_submit = st.form_submit_button("Takvime Ekle")
+            if g_submit:
+                if g_ad:
+                    gelecek_arz_ekle(g_kod, g_ad, g_fiyat, g_talep, g_islem, g_durum)
+                    st.success("✅ Takvime eklendi!")
+                    st.rerun()
+
+    st.subheader("📋 Yaklaşan & Onaylanan Halka Arzlar")
+    
+    if df_gelecek.empty:
+        st.info("Henüz takvime eklenmiş gelecek halka arz bulunmuyor.")
+    else:
+        for _, row in df_gelecek.iterrows():
+            gid = row['id']
+            gkod = row['kod']
+            gad = row['ad']
+            gfiyat = row['fiyat']
+            gtalep = row['talep_tarihi']
+            gislem = row['islem_tarihi']
+            gdurum = row['durum']
+
+            badge_style = "badge-taslak"
+            if "Talep" in gdurum:
+                badge_style = "badge-talep"
+            elif "İşlem" in gdurum:
+                badge_style = "badge-islem"
+
+            with st.container(border=True):
+                gc1, gc2, gc3 = st.columns([2, 2, 1])
+                
+                with gc1:
+                    st.markdown(f"### {gkod} <span class='{badge_style}'>{gdurum}</span>", unsafe_allow_html=True)
+                    st.write(f"**{gad}**")
+                    st.write(f"**Halka Arz Fiyatı:** ₺{gfiyat:.2f}")
+
+                with gc2:
+                    st.write(f"📅 **Talep Toplama:** {gtalep if gtalep else 'Açıklanmadı'}")
+                    st.write(f"🔔 **Borsa İşlem Tarihi:** {gislem if gislem else 'Açıklanmadı'}")
+
+                with gc3:
+                    with st.popover("➕ Portföyüme Aktar"):
+                        st.write("Düşen lot miktarını girip portföyüne ekle:")
+                        p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{gid}")
+                        p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{gid}")
+                        if st.button("Aktarmayı Onayla", key=f"g_btn_{gid}"):
+                            veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, gfiyat)
+                            gelecek_arz_sil(gid)
+                            st.toast("Hisse portföyüne başarıyla aktarıldı!")
+                            st.rerun()
+
+                    st.write("")
+                    if st.button("🗑️ Sil", key=f"gdel_{gid}"):
+                        gelecek_arz_sil(gid)
+                        st.toast("Takvimden silindi.")
+                        st.rerun()
+
+# =========================================================
+# TAB 3: BORÇ & KREDİ TAKİP
+# =========================================================
+with tab3:
     st.title("💳 Borç & Kredi Defteri")
     
     df_borc = borclari_getir()
@@ -368,7 +453,6 @@ with tab2:
         
     kalan_toplam_borc = toplam_ana_borc - toplam_odenen_borc
     
-    # Metrik Kartları
     mc1, mc2, mc3 = st.columns(3)
     mc1.metric("Toplam Borç / Kredi", f"₺{toplam_ana_borc:,.2f}")
     mc2.metric("Ödenen Toplam Tutar", f"₺{toplam_odenen_borc:,.2f}")
@@ -376,7 +460,6 @@ with tab2:
     
     st.divider()
 
-    # YENİ BORÇ / KREDİ EKLEME
     with st.expander("➕ Yeni Borç / Kredi Ekle", expanded=False):
         with st.form("yeni_borc_formu", clear_on_submit=True):
             b_tur = st.radio("Tür Seçin:", ["Bankadan Kredi", "Kişisel Borç (Arkadaş, Kız Arkadaşı vs.)"], horizontal=True)
