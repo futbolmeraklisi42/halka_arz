@@ -51,7 +51,7 @@ def init_db():
             fiyat REAL NOT NULL,
             talep_tarihi TEXT,
             islem_tarihi TEXT,
-            durum TEXT DEFAULT 'Taslak' -- 'Taslak', 'Talep Toplanıyor', 'İşlem Başladı'
+            durum TEXT DEFAULT 'Taslak'
         )
     ''')
 
@@ -361,7 +361,7 @@ with tab1:
 # =========================================================
 # TAB 2: GELECEK HALKA ARZLAR VE TAKVİM
 # =========================================================
-with tab3_temp := tab2:
+with tab2:
     st.title("📅 Gelecek Halka Arzlar & Takvim")
     st.caption("Yaklaşan halka arzları, talep toplama ve borsa işlem tarihlerini buradan takip edebilirsin.")
 
