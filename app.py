@@ -21,6 +21,7 @@ st.set_page_config(
 def init_db():
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
+    
     # Halka Arz Tablosu
     c.execute('''
         CREATE TABLE IF NOT EXISTS portfoy (
@@ -30,15 +31,17 @@ def init_db():
             hesap_sayisi INTEGER NOT NULL,
             lot INTEGER NOT NULL,
             maliyet REAL NOT NULL,
+            satis_fiyati REAL DEFAULT 0.0,
             durum TEXT DEFAULT 'Aktif'
         )
     ''')
+    
     # Borç & Kredi Tablosu
     c.execute('''
         CREATE TABLE IF NOT EXISTS borclar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             baslik TEXT NOT NULL,
-            tur TEXT NOT NULL, -- 'Kredi' veya 'Kişisel'
+            tur TEXT NOT NULL,
             kisi_kurum TEXT NOT NULL,
             toplam_tutar REAL NOT NULL,
             taksit_sayisi INTEGER DEFAULT 1,
@@ -55,17 +58,28 @@ def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
     c.execute('''
-        INSERT INTO portfoy (kod, ad, hesap_sayisi, lot, maliyet, durum)
-        VALUES (?, ?, ?, ?, ?, 'Aktif')
+        INSERT INTO portfoy (kod, ad, hesap_sayisi, lot, maliyet, satis_fiyati, durum)
+        VALUES (?, ?, ?, ?, ?, 0.0, 'Aktif')
     ''', (kod, ad, hesap_sayisi, lot, maliyet))
     conn.commit()
     conn.close()
 
-def verileri_getir_halka_arz():
+def verileri_getir_halka_arz(durum='Aktif'):
     conn = sqlite3.connect("halka_arz.db")
-    df = pd.read_sql_query("SELECT * FROM portfoy WHERE durum = 'Aktif'", conn)
+    df = pd.read_sql_query("SELECT * FROM portfoy WHERE durum = ?", conn, params=(durum,))
     conn.close()
     return df
+
+def hisse_satis_yap(hisse_id, satis_fiyati):
+    conn = sqlite3.connect("halka_arz.db")
+    c = conn.cursor()
+    c.execute('''
+        UPDATE portfoy 
+        SET satis_fiyati = ?, durum = 'Satildi' 
+        WHERE id = ?
+    ''', (satis_fiyati, hisse_id))
+    conn.commit()
+    conn.close()
 
 def hisse_sil(hisse_id):
     conn = sqlite3.connect("halka_arz.db")
@@ -154,6 +168,13 @@ st.markdown("""
         font-size: 11px;
         font-weight: bold;
     }
+    .badge-satildi {
+        background-color: #64748b;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+    }
     .badge-kredi {
         background-color: #0284c7;
         color: white;
@@ -172,33 +193,44 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- TAB YAPISI -----------------
-tab1, tab2 = st.tabs(["🚀 Halka Arz Takip", "💳 Borç & Kredi Takip"])
+tab1, tab2 = st.tabs(["🚀 Halka Arz Portföyü", "💳 Borç & Kredi Takip"])
 
 # =========================================================
-# TAB 1: HALKA ARZ TAKİP
+# TAB 1: HALKA ARZ TAKİP (AKTİF VE SATILANLAR)
 # =========================================================
 with tab1:
     st.title("🚀 Halka Arz Portföyüm")
     
-    df_portfoy = verileri_getir_halka_arz()
+    df_aktif = verileri_getir_halka_arz('Aktif')
+    df_satilan = verileri_getir_halka_arz('Satildi')
 
-    toplam_yatirilan = 0.0
-    toplam_guncel = 0.0
-
-    if not df_portfoy.empty:
-        for _, row in df_portfoy.iterrows():
+    # Aktif Portföy Hesapları
+    toplam_yatirilan_aktif = 0.0
+    toplam_guncel_aktif = 0.0
+    if not df_aktif.empty:
+        for _, row in df_aktif.iterrows():
             toplam_lot = row['hesap_sayisi'] * row['lot']
-            toplam_yatirilan += (toplam_lot * row['maliyet'])
+            toplam_yatirilan_aktif += (toplam_lot * row['maliyet'])
             anlik_fiyat = get_bist_price(row['kod'], row['maliyet'])
-            toplam_guncel += (toplam_lot * anlik_fiyat)
+            toplam_guncel_aktif += (toplam_lot * anlik_fiyat)
 
-    toplam_kar = toplam_guncel - toplam_yatirilan
-    kar_orani = (toplam_kar / toplam_yatirilan * 100) if toplam_yatirilan > 0 else 0.0
+    potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Toplam Yatırılan", f"₺{toplam_yatirilan:,.2f}")
-    col2.metric("Güncel Portföy Değeri", f"₺{toplam_guncel:,.2f}", f"+%{kar_orani:.1f}")
-    col3.metric("Halka Arz Net Kâr", f"₺{toplam_kar:,.2f}", f"₺{toplam_kar:,.2f}")
+    # Satılan Hisseler (Gerçekleşen Kâr) Hesapları
+    gerceklesen_kar = 0.0
+    if not df_satilan.empty:
+        for _, row in df_satilan.iterrows():
+            toplam_lot = row['hesap_sayisi'] * row['lot']
+            maliyet_tutar = toplam_lot * row['maliyet']
+            satis_tutar = toplam_lot * row['satis_fiyati']
+            gerceklesen_kar += (satis_tutar - maliyet_tutar)
+
+    # Üst Özet Kartları
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Aktif Yatırılan", f"₺{toplam_yatirilan_aktif:,.2f}")
+    col2.metric("Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
+    col3.metric("Anlık Potansiyel Kâr", f"₺{potansiyel_kar:,.2f}", f"+₺{potansiyel_kar:,.2f}")
+    col4.metric("Cepteki Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}", f"₺{gerceklesen_kar:,.2f}")
 
     st.divider()
 
@@ -220,45 +252,96 @@ with tab1:
                     st.success(f"✅ {f_kod} başarıyla eklendi!")
                     st.rerun()
 
-    st.subheader("📌 Aktif Hisselerim")
+    # AKTİF / SATILAN TABLARI (İÇ TAB)
+    sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan & Geçmiş Hisseler"])
 
-    if df_portfoy.empty:
-        st.info("Henüz portföyüne eklenmiş bir halka arz bulunmuyor.")
-    else:
-        for _, row in df_portfoy.iterrows():
-            hisse_id = row['id']
-            kod = row['kod']
-            ad = row['ad']
-            hesap_sayisi = row['hesap_sayisi']
-            lot = row['lot']
-            maliyet = row['maliyet']
-            
-            toplam_lot = hesap_sayisi * lot
-            toplam_maliyet = toplam_lot * maliyet
-            anlik_fiyat = get_bist_price(kod, maliyet)
-            guncel_deger = toplam_lot * anlik_fiyat
-            kar = guncel_deger - toplam_maliyet
-            yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100
+    # 1. SUB-TAB: AKTİF HİSSELER
+    with sub_tab1:
+        if df_aktif.empty:
+            st.info("Şu an aktif portföyünde hisse bulunmuyor.")
+        else:
+            for _, row in df_aktif.iterrows():
+                hisse_id = row['id']
+                kod = row['kod']
+                ad = row['ad']
+                hesap_sayisi = row['hesap_sayisi']
+                lot = row['lot']
+                maliyet = row['maliyet']
+                
+                toplam_lot = hesap_sayisi * lot
+                toplam_maliyet = toplam_lot * maliyet
+                anlik_fiyat = get_bist_price(kod, maliyet)
+                guncel_deger = toplam_lot * anlik_fiyat
+                kar = guncel_deger - toplam_maliyet
+                yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100
 
-            with st.container(border=True):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                
-                with c1:
-                    st.markdown(f"### {kod} <span class='badge-tavan'>🚀 CANLI</span>", unsafe_allow_html=True)
-                    st.write(f"**{ad}**")
-                    st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
-                
-                with c2:
-                    st.write(f"**Anlık Fiyat:** ₺{anlik_fiyat:.2f} (%+{yuzde_degisim:.1f})")
-                    st.write(f"**Maliyet:** ₺{toplam_maliyet:,.2f} ➔ **Değer:** ₺{guncel_deger:,.2f}")
-                    st.markdown(f"**Kâr / Zarar:** <span style='color:#10b981; font-weight:bold;'>+₺{kar:,.2f}</span>", unsafe_allow_html=True)
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([2, 2, 1])
                     
-                with c3:
-                    st.write("")
-                    if st.button("🗑️ Sil / Satıldı", key=f"del_h_{hisse_id}"):
-                        hisse_sil(hisse_id)
-                        st.toast(f"{kod} portföyden çıkarıldı!")
-                        st.rerun()
+                    with c1:
+                        st.markdown(f"### {kod} <span class='badge-tavan'>🚀 CANLI</span>", unsafe_allow_html=True)
+                        st.write(f"**{ad}**")
+                        st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
+                    
+                    with c2:
+                        st.write(f"**Anlık Fiyat:** ₺{anlik_fiyat:.2f} (%+{yuzde_degisim:.1f})")
+                        st.write(f"**Maliyet:** ₺{toplam_maliyet:,.2f} ➔ **Değer:** ₺{guncel_deger:,.2f}")
+                        st.markdown(f"**Kâr / Zarar:** <span style='color:#10b981; font-weight:bold;'>+₺{kar:,.2f}</span>", unsafe_allow_html=True)
+                        
+                    with c3:
+                        with st.popover("💵 Satış Yap"):
+                            st.write(f"**{kod} Satış Kaydı**")
+                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), key=f"s_input_{hisse_id}")
+                            if st.button("Satışı Onayla", key=f"btn_sat_{hisse_id}"):
+                                hisse_satis_yap(hisse_id, satis_f)
+                                st.toast(f"{kod} satılanlara aktarıldı!")
+                                st.rerun()
+                        
+                        st.write("")
+                        if st.button("🗑️ Sil", key=f"del_h_{hisse_id}"):
+                            hisse_sil(hisse_id)
+                            st.toast(f"{kod} silindi.")
+                            st.rerun()
+
+    # 2. SUB-TAB: SATILAN HİSSELER
+    with sub_tab2:
+        if df_satilan.empty:
+            st.info("Henüz satışını yaptığın bir hisse bulunmuyor.")
+        else:
+            for _, row in df_satilan.iterrows():
+                hisse_id = row['id']
+                kod = row['kod']
+                ad = row['ad']
+                hesap_sayisi = row['hesap_sayisi']
+                lot = row['lot']
+                maliyet = row['maliyet']
+                satis_fiyati = row['satis_fiyati']
+                
+                toplam_lot = hesap_sayisi * lot
+                toplam_maliyet = toplam_lot * maliyet
+                toplam_satis_tutari = toplam_lot * satis_fiyati
+                net_kar = toplam_satis_tutari - toplam_maliyet
+                kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100
+
+                with st.container(border=True):
+                    c1, c2, c3 = st.columns([2, 2, 1])
+                    
+                    with c1:
+                        st.markdown(f"### {kod} <span class='badge-satildi'>✅ SATILDI</span>", unsafe_allow_html=True)
+                        st.write(f"**{ad}**")
+                        st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
+                    
+                    with c2:
+                        st.write(f"**Maliyet:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} (%+{kar_orani:.1f})")
+                        st.write(f"**Harcanan:** ₺{toplam_maliyet:,.2f} ➔ **Ele Geçen:** ₺{toplam_satis_tutari:,.2f}")
+                        st.markdown(f"**Cebine Giren Kâr:** <span style='color:#10b981; font-weight:bold;'>+₺{net_kar:,.2f}</span>", unsafe_allow_html=True)
+                        
+                    with c3:
+                        st.write("")
+                        if st.button("🗑️ Arşivden Sil", key=f"del_s_{hisse_id}"):
+                            hisse_sil(hisse_id)
+                            st.toast(f"{kod} arşivden silindi.")
+                            st.rerun()
 
 # =========================================================
 # TAB 2: BORÇ & KREDİ TAKİP
@@ -348,7 +431,6 @@ with tab2:
                     st.write(f"**Toplam:** ₺{toplam:,.2f} | **Ödenen:** ₺{odenen_tutar:,.2f}")
                     st.markdown(f"**Kalan Borç:** <span style='color:#ef4444; font-weight:bold;'>₺{kalan:,.2f}</span>", unsafe_allow_html=True)
                     
-                    # Taksit İlerleme Çubuğu
                     ilerleme = min(odenen_tutar / toplam, 1.0) if toplam > 0 else 0
                     st.progress(ilerleme, text=f"%{ilerleme*100:.0f} Ödendi")
 
@@ -365,7 +447,6 @@ with tab2:
                         else:
                             st.success("Tüm taksitler bitti! 🎉")
                     else:
-                        # Kişisel Borç İçin Ödeme
                         if kalan > 0:
                             odenecek = st.number_input("Ödenen Tutar (₺):", min_value=1.0, max_value=float(kalan), value=float(kalan), key=f"input_p_{b_id}")
                             if st.button("💵 Ödeme Yap", key=f"pay_{b_id}"):
@@ -381,12 +462,13 @@ with tab2:
                         st.toast("Borç kaydı silindi.")
                         st.rerun()
 
-    # GENERAL FINANSAL ÖZET BARI
+    # GENERAL FİNANSAL ÖZET BARI
     st.divider()
     st.subheader("⚖️ Genel Finansal Denge")
-    net_durum = toplam_kar - kalan_toplam_borc
+    toplam_cebe_giren_kar = gerceklesen_kar + potansiyel_kar
+    net_durum = toplam_cebe_giren_kar - kalan_toplam_borc
     
     if net_durum >= 0:
-        st.success(f"💚 **Tebrikler!** Halka arz kârların borçlarını karşılıyor. **Net Artı Bakiyen: +₺{net_durum:,.2f}**")
+        st.success(f"💚 **Tebrikler!** Toplam Halka Arz kârın (Anlık + Satılan) kalan borçlarını karşılıyor. **Net Artı Bakiyen: +₺{net_durum:,.2f}**")
     else:
         st.error(f"🔴 **Dikkat:** Halka arz kârların kalan borcunu henüz karşılamıyor. **Net Açık: ₺{net_durum:,.2f}**")
