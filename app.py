@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- VERİ TABANI KURULUMU -----------------
+# ----------------- VERİ TABANI KURULUMU & MİGRATION -----------------
 def init_db():
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
@@ -35,6 +35,12 @@ def init_db():
             durum TEXT DEFAULT 'Aktif'
         )
     ''')
+    
+    # Eski veritabanlarında satis_fiyati kolonu yoksa otomatik ekle (Migration)
+    c.execute("PRAGMA table_info(portfoy)")
+    columns = [column[1] for column in c.fetchall()]
+    if "satis_fiyati" not in columns:
+        c.execute("ALTER TABLE portfoy ADD COLUMN satis_fiyati REAL DEFAULT 0.0")
     
     # Borç & Kredi Tablosu
     c.execute('''
@@ -251,6 +257,8 @@ with tab1:
                     veri_ekle_halka_arz(f_kod, f_ad, f_hesap, f_lot, f_maliyet)
                     st.success(f"✅ {f_kod} başarıyla eklendi!")
                     st.rerun()
+                else:
+                    st.error("Lütfen Hisse Kodu ve Şirket Adını doldurun.")
 
     # AKTİF / SATILAN TABLARI (İÇ TAB)
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan & Geçmiş Hisseler"])
