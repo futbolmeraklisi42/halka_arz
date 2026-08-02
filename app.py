@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 import requests
 from bs4 import BeautifulSoup
 import re
+from streamlit_gsheets import GSheetsConnection
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -13,172 +13,95 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- VERİ TABANI KURULUMU & MİGRATION -----------------
-def init_db():
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    
-    # Aktif & Satılan Portföy Tablosu
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS portfoy (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kod TEXT NOT NULL,
-            ad TEXT NOT NULL,
-            hesap_sayisi INTEGER NOT NULL,
-            lot INTEGER NOT NULL,
-            maliyet REAL NOT NULL,
-            satis_fiyati REAL DEFAULT 0.0,
-            durum TEXT DEFAULT 'Aktif'
-        )
-    ''')
-    
-    # PRAGMA Migration
-    c.execute("PRAGMA table_info(portfoy)")
-    columns = [column[1] for column in c.fetchall()]
-    if "satis_fiyati" not in columns:
-        c.execute("ALTER TABLE portfoy ADD COLUMN satis_fiyati REAL DEFAULT 0.0")
-    
-    # Gelecek Halka Arzlar Tablosu
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS gelecek_arzlar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kod TEXT NOT NULL,
-            ad TEXT NOT NULL,
-            fiyat REAL NOT NULL,
-            talep_tarihi TEXT,
-            islem_tarihi TEXT,
-            durum TEXT DEFAULT 'Taslak'
-        )
-    ''')
+# ----------------- GOOGLE SHEETS BAGLANTISI -----------------
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-    # Borç & Kredi Tablosu
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS borclar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            baslik TEXT NOT NULL,
-            tur TEXT NOT NULL,
-            kisi_kurum TEXT NOT NULL,
-            toplam_tutar REAL NOT NULL,
-            taksit_sayisi INTEGER DEFAULT 1,
-            odenen_taksit INTEGER DEFAULT 0,
-            odenen_tutar REAL DEFAULT 0.0,
-            aciklama TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+def verileri_getir(worksheet_name):
+    try:
+        df = conn.read(worksheet=worksheet_name, ttl=5)
+        return df.dropna(how="all")
+    except Exception:
+        return pd.DataFrame()
 
-# Database İşlemleri - Halka Arz
+def veri_kaydet(worksheet_name, df):
+    conn.update(worksheet=worksheet_name, data=df)
+
+# --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO portfoy (kod, ad, hesap_sayisi, lot, maliyet, satis_fiyati, durum)
-        VALUES (?, ?, ?, ?, ?, 0.0, 'Aktif')
-    ''', (kod, ad, hesap_sayisi, lot, maliyet))
-    conn.commit()
-    conn.close()
+    df = verileri_getir("portfoy")
+    yeni_veri = pd.DataFrame([{
+        "kod": kod,
+        "ad": ad,
+        "hesap_sayisi": int(hesap_sayisi),
+        "lot": int(lot),
+        "maliyet": float(maliyet),
+        "satis_fiyati": 0.0,
+        "durum": "Aktif"
+    }])
+    df = pd.concat([df, yeni_veri], ignore_index=True)
+    veri_kaydet("portfoy", df)
 
-def verileri_getir_halka_arz(durum='Aktif'):
-    conn = sqlite3.connect("halka_arz.db")
-    df = pd.read_sql_query("SELECT * FROM portfoy WHERE durum = ?", conn, params=(durum,))
-    conn.close()
-    return df
+def hisse_satis_yap(index_no, satis_fiyati):
+    df = verileri_getir("portfoy")
+    df.at[index_no, "satis_fiyati"] = float(satis_fiyati)
+    df.at[index_no, "durum"] = "Satildi"
+    veri_kaydet("portfoy", df)
 
-def hisse_satis_yap(hisse_id, satis_fiyati):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute('''
-        UPDATE portfoy 
-        SET satis_fiyati = ?, durum = 'Satildi' 
-        WHERE id = ?
-    ''', (satis_fiyati, hisse_id))
-    conn.commit()
-    conn.close()
+def hisse_sil(index_no):
+    df = verileri_getir("portfoy")
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("portfoy", df)
 
-def hisse_sil(hisse_id):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM portfoy WHERE id = ?", (hisse_id,))
-    conn.commit()
-    conn.close()
-
-# Database İşlemleri - Gelecek Arzlar
+# --- GELECEK ARZ İŞLEMLERİ ---
 def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    # Mükerrer kaydı önlemek için önce kontrol et
-    c.execute("SELECT id FROM gelecek_arzlar WHERE ad = ? OR (kod = ? AND kod != 'TASLAK')", (ad, kod))
-    exists = c.fetchone()
-    if not exists:
-        c.execute('''
-            INSERT INTO gelecek_arzlar (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum))
-        conn.commit()
-    conn.close()
+    df = verileri_getir("gelecek_arzlar")
+    yeni_veri = pd.DataFrame([{
+        "kod": kod,
+        "ad": ad,
+        "fiyat": float(fiyat),
+        "talep_tarihi": str(talep_tarihi),
+        "islem_tarihi": str(islem_tarihi),
+        "durum": durum
+    }])
+    df = pd.concat([df, yeni_veri], ignore_index=True)
+    veri_kaydet("gelecek_arzlar", df)
 
-def gelecek_arzlari_getir():
-    conn = sqlite3.connect("halka_arz.db")
-    df = pd.read_sql_query("SELECT * FROM gelecek_arzlar", conn)
-    conn.close()
-    return df
+def gelecek_arz_sil(index_no):
+    df = verileri_getir("gelecek_arzlar")
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("gelecek_arzlar", df)
 
-def gelecek_arz_sil(arz_id):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM gelecek_arzlar WHERE id = ?", (arz_id,))
-    conn.commit()
-    conn.close()
-
-# Database İşlemleri - Borçlar
+# --- BORÇ İŞLEMLERİ ---
 def borc_ekle(baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO borclar (baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, odenen_taksit, odenen_tutar, aciklama)
-        VALUES (?, ?, ?, ?, ?, 0, 0.0, ?)
-    ''', (baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama))
-    conn.commit()
-    conn.close()
+    df = verileri_getir("borclar")
+    yeni_veri = pd.DataFrame([{
+        "baslik": baslik,
+        "tur": tur,
+        "kisi_kurum": kisi_kurum,
+        "toplam_tutar": float(toplam_tutar),
+        "taksit_sayisi": int(taksit_sayisi),
+        "odenen_taksit": 0,
+        "odenen_tutar": 0.0,
+        "aciklama": aciklama
+    }])
+    df = pd.concat([df, yeni_veri], ignore_index=True)
+    veri_kaydet("borclar", df)
 
-def borclari_getir():
-    conn = sqlite3.connect("halka_arz.db")
-    df = pd.read_sql_query("SELECT * FROM borclar", conn)
-    conn.close()
-    return df
+def taksit_artir(index_no, mevcut_odenen_taksit, taksit_tutari):
+    df = verileri_getir("borclar")
+    df.at[index_no, "odenen_taksit"] = int(mevcut_odenen_taksit) + 1
+    df.at[index_no, "odenen_tutar"] = float(df.at[index_no, "odenen_tutar"]) + float(taksit_tutari)
+    veri_kaydet("borclar", df)
 
-def taksit_artir(borc_id, mevcut_odenen_taksit, taksit_tutari):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    yeni_odenen = mevcut_odenen_taksit + 1
-    c.execute('''
-        UPDATE borclar 
-        SET odenen_taksit = ?, odenen_tutar = odenen_tutar + ?
-        WHERE id = ?
-    ''', (yeni_odenen, taksit_tutari, borc_id))
-    conn.commit()
-    conn.close()
+def borc_odeme_yap(index_no, odenecek_tutar):
+    df = verileri_getir("borclar")
+    df.at[index_no, "odenen_tutar"] = float(df.at[index_no, "odenen_tutar"]) + float(odenecek_tutar)
+    veri_kaydet("borclar", df)
 
-def borc_odeme_yap(borc_id, odenecek_tutar):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute('''
-        UPDATE borclar 
-        SET odenen_tutar = odenen_tutar + ?
-        WHERE id = ?
-    ''', (odenecek_tutar, borc_id))
-    conn.commit()
-    conn.close()
-
-def borc_sil(borc_id):
-    conn = sqlite3.connect("halka_arz.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM borclar WHERE id = ?", (borc_id,))
-    conn.commit()
-    conn.close()
-
-init_db()
+def borc_sil(index_no):
+    df = verileri_getir("borclar")
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("borclar", df)
 
 # ----------------- CANLI BİST VERİSİ -----------------
 @st.cache_data(ttl=60)
@@ -187,8 +110,6 @@ def canlı_bist_veri_cek(symbol):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
-    
-    # İş Yatırım
     try:
         url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx?hisse={symbol}"
         res = requests.get(url, headers=headers, timeout=5)
@@ -204,7 +125,6 @@ def canlı_bist_veri_cek(symbol):
     except Exception:
         pass
 
-    # Bigpara (Yedek)
     try:
         url_bigpara = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol}-detay/"
         res_bp = requests.get(url_bigpara, headers=headers, timeout=5)
@@ -246,61 +166,6 @@ def hisse_durumunu_sorgula(symbol):
             "mesaj": "🟡 Hisse işleme açılmamış veya verisine anlık ulaşılamıyor."
         }
 
-# ----------------- GELECEK HALKA ARZLARI WEBDEN ÇEKİCİ -----------------
-def gecelek_halka_arzlari_webden_cek():
-    """Halka arz sitelerinden güncel yaklaşan halka arz verilerini canlı olarak çeker."""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-    eklenen_sayisi = 0
-    try:
-        url = "https://halkaarz.com/"
-        res = requests.get(url, headers=headers, timeout=8)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            # Ana sayfadaki halka arz kartlarını çek
-            items = soup.find_all("article", class_=re.compile("il-post"))
-            
-            for item in items:
-                try:
-                    # Şirket adı ve Kod
-                    title_elem = item.find("h3", class_="il-title")
-                    if not title_elem:
-                        continue
-                    sirket_ad = title_elem.text.strip()
-                    
-                    # Hisse Kodu
-                    kod_elem = item.find("span", class_="il-kod")
-                    kod = kod_elem.text.strip().upper() if kod_elem else "TASLAK"
-                    
-                    # Fiyat ve Tarih bilgileri
-                    fiyat = 0.0
-                    talep_tarihi = "Açıklanmadı"
-                    durum = "Taslak (SPK Bekliyor)"
-                    
-                    detail_texts = item.find_all("li")
-                    for li in detail_texts:
-                        txt = li.text.strip()
-                        if "TL" in txt or "₺" in txt:
-                            # Fiyatı yakala
-                            fiyat_match = re.search(r'(\d+[\.,]?\d*)\s*(TL|₺)', txt)
-                            if fiyat_match:
-                                fiyat = float(fiyat_match.group(1).replace(',', '.'))
-                        if "Talep" in txt or "Tarih" in txt:
-                            talep_tarihi = txt.replace("Talep Toplama Tarihi:", "").strip()
-                            durum = "Talep Toplanıyor"
-
-                    # Database'e kaydet
-                    gelecek_arz_ekle(kod, sirket_ad, fiyat, talep_tarihi, "", durum)
-                    eklenen_sayisi += 1
-                except Exception:
-                    continue
-            return True, eklenen_sayisi
-    except Exception as e:
-        return False, str(e)
-    return False, "Veri bulunamadı"
-
 # ----------------- CSS / STİL -----------------
 st.markdown("""
 <style>
@@ -330,26 +195,32 @@ tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "📅 Halka Arz Takvimi", "💳 
 with tab1:
     st.title("🚀 Halka Arz Portföyüm")
     
-    df_aktif = verileri_getir_halka_arz('Aktif')
-    df_satilan = verileri_getir_halka_arz('Satildi')
+    df_portfoy = verileri_getir("portfoy")
+    
+    df_aktif = pd.DataFrame()
+    df_satilan = pd.DataFrame()
+    
+    if not df_portfoy.empty and "durum" in df_portfoy.columns:
+        df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
+        df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
 
     toplam_yatirilan_aktif = 0.0
     toplam_guncel_aktif = 0.0
     if not df_aktif.empty:
-        for _, row in df_aktif.iterrows():
-            toplam_lot = row['hesap_sayisi'] * row['lot']
-            toplam_yatirilan_aktif += (toplam_lot * row['maliyet'])
-            anlik_fiyat = get_bist_price(row['kod'], row['maliyet'])
+        for idx, row in df_aktif.iterrows():
+            toplam_lot = int(row['hesap_sayisi']) * int(row['lot'])
+            toplam_yatirilan_aktif += (toplam_lot * float(row['maliyet']))
+            anlik_fiyat = get_bist_price(row['kod'], float(row['maliyet']))
             toplam_guncel_aktif += (toplam_lot * anlik_fiyat)
 
     potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
 
     gerceklesen_kar = 0.0
     if not df_satilan.empty:
-        for _, row in df_satilan.iterrows():
-            toplam_lot = row['hesap_sayisi'] * row['lot']
-            maliyet_tutar = toplam_lot * row['maliyet']
-            satis_tutar = toplam_lot * row['satis_fiyati']
+        for idx, row in df_satilan.iterrows():
+            toplam_lot = int(row['hesap_sayisi']) * int(row['lot'])
+            maliyet_tutar = toplam_lot * float(row['maliyet'])
+            satis_tutar = toplam_lot * float(row['satis_fiyati'])
             gerceklesen_kar += (satis_tutar - maliyet_tutar)
 
     col1, col2, col3, col4 = st.columns(4)
@@ -389,7 +260,7 @@ with tab1:
             if submit:
                 if f_kod and f_ad:
                     veri_ekle_halka_arz(f_kod, f_ad, f_hesap, f_lot, f_maliyet)
-                    st.success(f"✅ {f_kod} başarıyla eklendi!")
+                    st.success(f"✅ {f_kod} başarıyla Google Sheets'e eklendi!")
                     st.rerun()
 
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan & Geçmiş Hisseler"])
@@ -398,13 +269,12 @@ with tab1:
         if df_aktif.empty:
             st.info("Şu an aktif portföyünde hisse bulunmuyor.")
         else:
-            for _, row in df_aktif.iterrows():
-                hisse_id = row['id']
+            for idx, row in df_aktif.iterrows():
                 kod = row['kod']
                 ad = row['ad']
-                hesap_sayisi = row['hesap_sayisi']
-                lot = row['lot']
-                maliyet = row['maliyet']
+                hesap_sayisi = int(row['hesap_sayisi'])
+                lot = int(row['lot'])
+                maliyet = float(row['maliyet'])
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -429,15 +299,15 @@ with tab1:
                     with c3:
                         with st.popover("💵 Satış Yap"):
                             st.write(f"**{kod} Satış Kaydı**")
-                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), key=f"s_input_{hisse_id}")
-                            if st.button("Satışı Onayla", key=f"btn_sat_{hisse_id}"):
-                                hisse_satis_yap(hisse_id, satis_f)
+                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), key=f"s_input_{idx}")
+                            if st.button("Satışı Onayla", key=f"btn_sat_{idx}"):
+                                hisse_satis_yap(idx, satis_f)
                                 st.toast(f"{kod} satılanlara aktarıldı!")
                                 st.rerun()
                         
                         st.write("")
-                        if st.button("🗑️ Sil", key=f"del_h_{hisse_id}"):
-                            hisse_sil(hisse_id)
+                        if st.button("🗑️ Sil", key=f"del_h_{idx}"):
+                            hisse_sil(idx)
                             st.toast(f"{kod} silindi.")
                             st.rerun()
 
@@ -445,14 +315,13 @@ with tab1:
         if df_satilan.empty:
             st.info("Henüz satışını yaptığın bir hisse bulunmuyor.")
         else:
-            for _, row in df_satilan.iterrows():
-                hisse_id = row['id']
+            for idx, row in df_satilan.iterrows():
                 kod = row['kod']
                 ad = row['ad']
-                hesap_sayisi = row['hesap_sayisi']
-                lot = row['lot']
-                maliyet = row['maliyet']
-                satis_fiyati = row['satis_fiyati']
+                hesap_sayisi = int(row['hesap_sayisi'])
+                lot = int(row['lot'])
+                maliyet = float(row['maliyet'])
+                satis_fiyati = float(row['satis_fiyati'])
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -475,8 +344,8 @@ with tab1:
                         
                     with c3:
                         st.write("")
-                        if st.button("🗑️ Arşivden Sil", key=f"del_s_{hisse_id}"):
-                            hisse_sil(hisse_id)
+                        if st.button("🗑️ Arşivden Sil", key=f"del_s_{idx}"):
+                            hisse_sil(idx)
                             st.toast(f"{kod} arşivden silindi.")
                             st.rerun()
 
@@ -485,20 +354,7 @@ with tab1:
 # =========================================================
 with tab2:
     st.title("📅 Gelecek Halka Arzlar & Takvim")
-    st.caption("Yaklaşan halka arzları, talep toplama ve borsa işlem tarihlerini canlı olarak takip edebilirsin.")
-
-    col_btn1, col_btn2 = st.columns([1, 3])
-    with col_btn1:
-        if st.button("🔄 Web'den Güncel Takvimi Çek", type="primary"):
-            with st.spinner("Güncel halka arzlar çekiliyor..."):
-                basari, mesaj = gecelek_halka_arzlari_webden_cek()
-                if basari:
-                    st.success("✅ Gelecek halka arz verileri internetten güncellendi!")
-                    st.rerun()
-                else:
-                    st.error(f"Veri çekilemedi: {mesaj}")
-
-    df_gelecek = gelecek_arzlari_getir()
+    df_gelecek = verileri_getir("gelecek_arzlar")
 
     with st.expander("➕ Manuel Gelecek Halka Arz Ekle", expanded=False):
         with st.form("yeni_gelecek_arz", clear_on_submit=True):
@@ -523,21 +379,20 @@ with tab2:
     st.subheader("📋 Yaklaşan & Onaylanan Halka Arzlar")
     
     if df_gelecek.empty:
-        st.info("Henüz takvime eklenmiş halka arz bulunmuyor. Yukarıdaki '🔄 Web'den Güncel Takvimi Çek' butonuna basarak anında doldurabilirsin!")
+        st.info("Henüz takvime eklenmiş halka arz bulunmuyor.")
     else:
-        for _, row in df_gelecek.iterrows():
-            gid = row['id']
+        for idx, row in df_gelecek.iterrows():
             gkod = row['kod']
             gad = row['ad']
-            gfiyat = row['fiyat']
+            gfiyat = float(row['fiyat'])
             gtalep = row['talep_tarihi']
             gislem = row['islem_tarihi']
             gdurum = row['durum']
 
             badge_style = "badge-taslak"
-            if "Talep" in gdurum:
+            if "Talep" in str(gdurum):
                 badge_style = "badge-talep"
-            elif "İşlem" in gdurum:
+            elif "İşlem" in str(gdurum):
                 badge_style = "badge-islem"
 
             with st.container(border=True):
@@ -555,18 +410,18 @@ with tab2:
                 with gc3:
                     with st.popover("➕ Portföyüme Aktar"):
                         st.write("Düşen lot miktarını girip portföyüne ekle:")
-                        p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{gid}")
-                        p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{gid}")
-                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, key=f"gf_{gid}")
-                        if st.button("Aktarmayı Onayla", key=f"g_btn_{gid}"):
+                        p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{idx}")
+                        p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{idx}")
+                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, key=f"gf_{idx}")
+                        if st.button("Aktarmayı Onayla", key=f"g_btn_{idx}"):
                             veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, p_fiyat)
-                            gelecek_arz_sil(gid)
+                            gelecek_arz_sil(idx)
                             st.toast("Hisse portföyüne başarıyla aktarıldı!")
                             st.rerun()
 
                     st.write("")
-                    if st.button("🗑️ Sil", key=f"gdel_{gid}"):
-                        gelecek_arz_sil(gid)
+                    if st.button("🗑️ Sil", key=f"gdel_{idx}"):
+                        gelecek_arz_sil(idx)
                         st.toast("Takvimden silindi.")
                         st.rerun()
 
@@ -576,14 +431,14 @@ with tab2:
 with tab3:
     st.title("💳 Borç & Kredi Defteri")
     
-    df_borc = borclari_getir()
+    df_borc = verileri_getir("borclar")
     
     toplam_ana_borc = 0.0
     toplam_odenen_borc = 0.0
     
     if not df_borc.empty:
-        toplam_ana_borc = df_borc['toplam_tutar'].sum()
-        toplam_odenen_borc = df_borc['odenen_tutar'].sum()
+        toplam_ana_borc = df_borc['toplam_tutar'].astype(float).sum()
+        toplam_odenen_borc = df_borc['odenen_tutar'].astype(float).sum()
         
     kalan_toplam_borc = toplam_ana_borc - toplam_odenen_borc
     
@@ -619,23 +474,20 @@ with tab3:
                     borc_ekle(b_baslik, tur_kod, b_kisi, b_tutar, b_taksit, b_aciklama)
                     st.success("✅ Borç kaydı oluşturuldu!")
                     st.rerun()
-                else:
-                    st.error("Lütfen Başlık ve Kişi/Banka alanlarını doldurun.")
 
     st.subheader("📋 Aktif Borç Listesi")
     
     if df_borc.empty:
         st.info("Kayıtlı borç bulunmuyor. Rahatsın! 😎")
     else:
-        for _, row in df_borc.iterrows():
-            b_id = row['id']
+        for idx, row in df_borc.iterrows():
             baslik = row['baslik']
             tur = row['tur']
             kisi = row['kisi_kurum']
-            toplam = row['toplam_tutar']
-            taksit_s = row['taksit_sayisi']
-            odenen_taksit = row['odenen_taksit']
-            odenen_tutar = row['odenen_tutar']
+            toplam = float(row['toplam_tutar'])
+            taksit_s = int(row['taksit_sayisi'])
+            odenen_taksit = int(row['odenen_taksit'])
+            odenen_tutar = float(row['odenen_tutar'])
             aciklama = row['aciklama']
             
             kalan = toplam - odenen_tutar
@@ -649,7 +501,7 @@ with tab3:
                 with c1:
                     st.markdown(f"### {baslik} {badge}", unsafe_allow_html=True)
                     st.write(f"**Alacaklı/Kurum:** {kisi}")
-                    if aciklama:
+                    if aciklama and str(aciklama) != "nan":
                         st.caption(f"📝 Not: {aciklama}")
                         
                 with c2:
@@ -665,25 +517,25 @@ with tab3:
                         st.caption(f"Aylık: ₺{taksit_tutari:,.2f}")
                         
                         if odenen_taksit < taksit_s and kalan > 0:
-                            if st.button(f"☑️ {odenen_taksit + 1}. Taksiti Öde", key=f"taksit_{b_id}"):
-                                taksit_artir(b_id, odenen_taksit, taksit_tutari)
+                            if st.button(f"☑️ {odenen_taksit + 1}. Taksiti Öde", key=f"taksit_{idx}"):
+                                taksit_artir(idx, odenen_taksit, taksit_tutari)
                                 st.toast(f"{odenen_taksit + 1}. taksit ödendi olarak işaretlendi!")
                                 st.rerun()
                         else:
                             st.success("Tüm taksitler bitti! 🎉")
                     else:
                         if kalan > 0:
-                            odenecek = st.number_input("Ödenen Tutar (₺):", min_value=1.0, max_value=float(kalan), value=float(kalan), key=f"input_p_{b_id}")
-                            if st.button("💵 Ödeme Yap", key=f"pay_{b_id}"):
-                                borc_odeme_yap(b_id, odenecek)
+                            odenecek = st.number_input("Ödenen Tutar (₺):", min_value=1.0, max_value=float(kalan), value=float(kalan), key=f"input_p_{idx}")
+                            if st.button("💵 Ödeme Yap", key=f"pay_{idx}"):
+                                borc_odeme_yap(idx, odenecek)
                                 st.toast("Ödeme kaydedildi!")
                                 st.rerun()
                         else:
                             st.success("Borç Kapandı! 🎉")
                             
                     st.write("")
-                    if st.button("🗑️ Kaydı Sil", key=f"del_b_{b_id}"):
-                        borc_sil(b_id)
+                    if st.button("🗑️ Kaydı Sil", key=f"del_b_{idx}"):
+                        borc_sil(idx)
                         st.toast("Borç kaydı silindi.")
                         st.rerun()
 
