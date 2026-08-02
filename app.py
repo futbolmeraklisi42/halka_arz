@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
+import json
 import re
 import gspread
 
@@ -165,39 +165,34 @@ def borc_sil(index_no):
     df = df.drop(index_no).reset_index(drop=True)
     veri_kaydet("borclar", df)
 
-# ----------------- CANLI BİST VERİSİ -----------------
+# ----------------- TRADINGVIEW CANLI BİST VERİSİ -----------------
 @st.cache_data(ttl=300)
 def canlı_bist_veri_cek(symbol):
     symbol = symbol.upper().strip()
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    url = "https://scanner.tradingview.com/turkey/scan"
+    
+    payload = {
+        "symbols": {
+            "tickers": [f"BIST:{symbol}"]
+        },
+        "columns": ["close", "description"]
     }
-    try:
-        url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx?hisse={symbol}"
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            fiyat_element = soup.find("span", {"id": "ctl00_ctl58_g_1688ed84_cb8d_4541_b926_e3f940bb2b32_ctl00_lblSonFiyat"})
-            if fiyat_element:
-                fiyat_str = fiyat_element.text.strip().replace('.', '').replace(',', '.')
-                fiyat = float(fiyat_str)
-                ad_element = soup.find("h1", {"class": "title"})
-                sirket_adi = ad_element.text.strip() if ad_element else symbol
-                return {"basarili": True, "fiyat": fiyat, "ad": sirket_adi, "kaynak": "İş Yatırım"}
-    except Exception:
-        pass
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Content-Type': 'application/json'
+    }
 
     try:
-        url_bigpara = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol}-detay/"
-        res_bp = requests.get(url_bigpara, headers=headers, timeout=5)
-        if res_bp.status_code == 200:
-            soup_bp = BeautifulSoup(res_bp.text, 'html.parser')
-            fiyat_span = soup_bp.find("span", {"class": "value"})
-            if fiyat_span:
-                fiyat_str = fiyat_span.text.strip().replace('.', '').replace(',', '.')
-                fiyat = float(fiyat_str)
-                return {"basarili": True, "fiyat": fiyat, "ad": symbol, "kaynak": "Bigpara"}
-    except Exception:
+        res = requests.post(url, json=payload, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if data and "data" in data and len(data["data"]) > 0:
+                d = data["data"][0]["d"]
+                fiyat = float(d[0])
+                sirket_adi = d[1] if d[1] else symbol
+                return {"basarili": True, "fiyat": fiyat, "ad": sirket_adi, "kaynak": "TradingView"}
+    except Exception as e:
         pass
 
     return {"basarili": False, "fiyat": None, "ad": symbol, "kaynak": "Yok"}
@@ -225,7 +220,7 @@ def hisse_durumunu_sorgula(symbol):
             "durum": "BEKLEMEDE",
             "fiyat": None,
             "ad": symbol.upper(),
-            "mesaj": "🟡 Hisse işleme açılmamış veya verisine anlık ulaşılamıyor."
+            "mesaj": "🟡 Hisse henüz işleme açılmamış veya BIST verisi henüz girilmemiş."
         }
 
 # ----------------- CSS / STİL -----------------
@@ -305,8 +300,8 @@ with tab1:
 
     st.divider()
 
-    with st.expander("➕ Halka Arz Ekle (Otomatik Canlı Sorgulama)", expanded=False):
-        sorgu_kod = st.text_input("Hisse Kodu (Örn: MASFN veya THYAO):", key="sorgu_input").upper().strip()
+    with st.expander("➕ Halka Arz Ekle (TradingView Canlı Sorgulama)", expanded=False):
+        sorgu_kod = st.text_input("Hisse Kodu (Örn: KARCL veya MASFN):", key="sorgu_input").upper().strip()
         
         otomatik_fiyat = 10.0
         otomatik_ad = ""
@@ -314,7 +309,7 @@ with tab1:
         if sorgu_kod:
             bilgi = hisse_durumunu_sorgula(sorgu_kod)
             if bilgi["durum"] == "ISLEM_GORUYOR":
-                st.success(f"{bilgi['mesaj']} (Son Canlı Fiyat: ₺{bilgi['fiyat']:.2f})")
+                st.success(f"{bilgi['mesaj']} (TradingView Fiyatı: ₺{bilgi['fiyat']:.2f})")
                 otomatik_fiyat = float(bilgi['fiyat'])
                 otomatik_ad = bilgi['ad']
             else:
@@ -357,10 +352,8 @@ with tab1:
                 kar = guncel_deger - toplam_maliyet
                 yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
-                # Düzeltme 1: Değişim Metni (+ / - Karışıklığı Çözüldü)
                 yuzde_str = f"+%{yuzde_degisim:.1f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.1f}"
                 
-                # Düzeltme 2 & 3: Kar/Zarar Metni ve Dinamik Renk (Kırmızı / Yeşil)
                 if kar >= 0:
                     kar_str = f"+₺{kar:,.2f}"
                     kar_renk = "#10b981"  # Yeşil
