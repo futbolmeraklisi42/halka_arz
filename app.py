@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import yfinance as yf
 
 # yfinance yüklenemezse uygulamanın çökmesini engellemek için güvenli import
 try:
@@ -182,17 +181,52 @@ def borc_sil(borc_id):
 # Veri tabanını başlat
 init_db()
 
-# ----------------- CANLI BİST FİYAT ÇEKİCİ -----------------
+# ----------------- CANLI BİST FİYAT & SORGULAMA ÇEKİCİ -----------------
 def get_bist_price(symbol, fallback_maliyet):
     if YFINANCE_AVAILABLE:
         try:
-            ticker = yf.Ticker(f"{symbol}.IS")
+            ticker = yf.Ticker(f"{symbol.upper().strip()}.IS")
             data = ticker.history(period="1d")
             if not data.empty:
                 return round(data['Close'].iloc[-1], 2)
-        except:
+        except Exception:
             pass
     return round(fallback_maliyet * 1.10, 2)
+
+def hisse_durumunu_sorgula(symbol):
+    if not symbol:
+        return {"durum": "BOŞ", "fiyat": None, "ad": "", "mesaj": "Lütfen bir hisse kodu yazın."}
+    
+    ticker_kod = f"{symbol.upper().strip()}.IS"
+    if YFINANCE_AVAILABLE:
+        try:
+            ticker = yf.Ticker(ticker_kod)
+            hist = ticker.history(period="1d")
+            
+            if not hist.empty:
+                son_fiyat = hist['Close'].iloc[-1]
+                sirket_adi = ticker.info.get('longName', symbol.upper())
+                return {
+                    "durum": "ISLEM_GORUYOR",
+                    "fiyat": round(son_fiyat, 2),
+                    "ad": sirket_adi,
+                    "mesaj": "🟢 Hisse Borsa İstanbul'da aktif olarak işlem görüyor."
+                }
+            else:
+                return {
+                    "durum": "BEKLEMEDE",
+                    "fiyat": None,
+                    "ad": symbol.upper(),
+                    "mesaj": "🟡 Hisse borsada işleme açılmadı (Taslak/Talep Toplama aşamasında)."
+                }
+        except Exception:
+            pass
+    return {
+        "durum": "BILINMIYOR",
+        "fiyat": None,
+        "ad": symbol.upper(),
+        "mesaj": "⚪ Hisse canlı verisine ulaşılamadı. Manuel girebilirsiniz."
+    }
 
 # ----------------- CSS / STİL -----------------
 st.markdown("""
@@ -253,16 +287,30 @@ with tab1:
 
     st.divider()
 
-    with st.expander("➕ Manuel Halka Arz Ekle", expanded=False):
+    with st.expander("➕ Halka Arz Ekle (Otomatik Sorgulamalı)", expanded=False):
+        sorgu_kod = st.text_input("Hisse Kodu (Örn: EMPAE veya BINBN):", key="sorgu_input").upper().strip()
+        
+        otomatik_fiyat = 10.0
+        otomatik_ad = ""
+        
+        if sorgu_kod:
+            bilgi = hisse_durumunu_sorgula(sorgu_kod)
+            if bilgi["durum"] == "ISLEM_GORUYOR":
+                st.success(f"{bilgi['mesaj']} (Son Fiyat: ₺{bilgi['fiyat']})")
+                otomatik_fiyat = float(bilgi['fiyat'])
+                otomatik_ad = bilgi['ad']
+            else:
+                st.info(bilgi['mesaj'])
+
         with st.form("yeni_arz_formu", clear_on_submit=True):
             col_f1, col_f2 = st.columns(2)
-            f_kod = col_f1.text_input("Hisse Kodu (Örn: BINBN):").upper().strip()
-            f_ad = col_f2.text_input("Şirket Adı:")
+            f_kod = col_f1.text_input("Hisse Kodu:", value=sorgu_kod).upper().strip()
+            f_ad = col_f2.text_input("Şirket Adı:", value=otomatik_ad)
             
             col_a, col_b, col_c = st.columns(3)
             f_hesap = col_a.number_input("Kaç Hesap Girildi?", min_value=1, value=1, step=1)
             f_lot = col_b.number_input("Hesap Başı Düşen Lot:", min_value=1, value=10, step=1)
-            f_maliyet = col_c.number_input("Halka Arz Fiyatı (₺):", min_value=0.01, value=10.0, step=0.1)
+            f_maliyet = col_c.number_input("Halka Arz Fiyatı (₺):", min_value=0.01, value=otomatik_fiyat, step=0.1)
             
             submit = st.form_submit_button("Portföye Kaydet")
             if submit:
@@ -290,7 +338,7 @@ with tab1:
                 anlik_fiyat = get_bist_price(kod, maliyet)
                 guncel_deger = toplam_lot * anlik_fiyat
                 kar = guncel_deger - toplam_maliyet
-                yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100
+                yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
@@ -337,7 +385,7 @@ with tab1:
                 toplam_maliyet = toplam_lot * maliyet
                 toplam_satis_tutari = toplam_lot * satis_fiyati
                 net_kar = toplam_satis_tutari - toplam_maliyet
-                kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100
+                kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
@@ -553,34 +601,6 @@ with tab3:
                         borc_sil(b_id)
                         st.toast("Borç kaydı silindi.")
                         st.rerun()
-
-
-    def hisse_durumunu_sorgula(symbol):
-    ticker_kod = f"{symbol.upper().strip()}.IS"
-    try:
-        ticker = yf.Ticker(ticker_kod)
-        # Son 1 günlük veri çekme denemesi
-        hist = ticker.history(period="1d")
-        
-        if not hist.empty:
-            son_fiyat = hist['Close'].iloc[-1]
-            return {
-                "durum": "ISLEM_GORUYOR",
-                "fiyat": round(son_fiyat, 2),
-                "mesaj": "🟢 Hisse Borsa İstanbul'da aktif olarak işlem görüyor."
-            }
-        else:
-            return {
-                "durum": "BEKLEMEDE",
-                "fiyat": None,
-                "mesaj": "🟡 Hisse kodu tanımlı ancak henüz borsada ilk işlem gerçekleşmedi (Takvimde/Onayda)."
-            }
-    except Exception as e:
-        return {
-            "durum": "BULUNAMADI",
-            "fiyat": None,
-            "mesaj": "🔴 Hisse kodu bulunamadı veya henüz BIST sistemine tanımlanmadı."
-        }
 
     # GENERAL FİNANSAL ÖZET BARI
     st.divider()
