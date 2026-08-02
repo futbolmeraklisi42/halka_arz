@@ -1,13 +1,9 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-
-# yfinance yüklenemezse uygulamanın çökmesini engellemek için güvenli import
-try:
-    import yfinance as yf
-    YFINANCE_AVAILABLE = True
-except ImportError:
-    YFINANCE_AVAILABLE = False
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -181,52 +177,80 @@ def borc_sil(borc_id):
 # Veri tabanını başlat
 init_db()
 
-# ----------------- CANLI BİST FİYAT & SORGULAMA ÇEKİCİ -----------------
+# ----------------- YENİ %100 YERLİ ANLIK BİST VERİ ÇEKİCİ -----------------
+@st.cache_data(ttl=60)  # Veriyi 60 saniye hafızada tutarak performansı artırır
+def canlı_bist_veri_cek(symbol):
+    """
+    Yerel finans kaynaklarından anlık BIST verilerini canlı olarak çeker.
+    """
+    symbol = symbol.upper().strip()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    # 1. YÖNTEM: İş Yatırım Servisi
+    try:
+        url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx?hisse={symbol}"
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            # Fiyat bulma
+            fiyat_element = soup.find("span", {"id": "ctl00_ctl58_g_1688ed84_cb8d_4541_b926_e3f940bb2b32_ctl00_lblSonFiyat"})
+            
+            if fiyat_element:
+                fiyat_str = fiyat_element.text.strip().replace('.', '').replace(',', '.')
+                fiyat = float(fiyat_str)
+                
+                # Adı bulma
+                ad_element = soup.find("h1", {"class": "title"})
+                sirket_adi = ad_element.text.strip() if ad_element else symbol
+                
+                return {"basarili": True, "fiyat": fiyat, "ad": sirket_adi, "kaynak": "İş Yatırım"}
+    except Exception:
+        pass
+
+    # 2. YÖNTEM: Bigpara Servisi (Yedek)
+    try:
+        url_bigpara = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol}-detay/"
+        res_bp = requests.get(url_bigpara, headers=headers, timeout=5)
+        if res_bp.status_code == 200:
+            soup_bp = BeautifulSoup(res_bp.text, 'html.parser')
+            fiyat_span = soup_bp.find("span", {"class": "value"})
+            if fiyat_span:
+                fiyat_str = fiyat_span.text.strip().replace('.', '').replace(',', '.')
+                fiyat = float(fiyat_str)
+                return {"basarili": True, "fiyat": fiyat, "ad": symbol, "kaynak": "Bigpara"}
+    except Exception:
+        pass
+
+    return {"basarili": False, "fiyat": None, "ad": symbol, "kaynak": "Yok"}
+
 def get_bist_price(symbol, fallback_maliyet):
-    if YFINANCE_AVAILABLE:
-        try:
-            ticker = yf.Ticker(f"{symbol.upper().strip()}.IS")
-            data = ticker.history(period="1d")
-            if not data.empty:
-                return round(data['Close'].iloc[-1], 2)
-        except Exception:
-            pass
-    return round(fallback_maliyet * 1.10, 2)
+    veri = canlı_bist_veri_cek(symbol)
+    if veri["basarili"]:
+        return veri["fiyat"]
+    return round(fallback_maliyet, 2)
 
 def hisse_durumunu_sorgula(symbol):
     if not symbol:
         return {"durum": "BOŞ", "fiyat": None, "ad": "", "mesaj": "Lütfen bir hisse kodu yazın."}
     
-    ticker_kod = f"{symbol.upper().strip()}.IS"
-    if YFINANCE_AVAILABLE:
-        try:
-            ticker = yf.Ticker(ticker_kod)
-            hist = ticker.history(period="1d")
-            
-            if not hist.empty:
-                son_fiyat = hist['Close'].iloc[-1]
-                sirket_adi = ticker.info.get('longName', symbol.upper())
-                return {
-                    "durum": "ISLEM_GORUYOR",
-                    "fiyat": round(son_fiyat, 2),
-                    "ad": sirket_adi,
-                    "mesaj": "🟢 Hisse Borsa İstanbul'da aktif olarak işlem görüyor."
-                }
-            else:
-                return {
-                    "durum": "BEKLEMEDE",
-                    "fiyat": None,
-                    "ad": symbol.upper(),
-                    "mesaj": "🟡 Hisse borsada işleme açılmadı (Taslak/Talep Toplama aşamasında)."
-                }
-        except Exception:
-            pass
-    return {
-        "durum": "BILINMIYOR",
-        "fiyat": None,
-        "ad": symbol.upper(),
-        "mesaj": "⚪ Hisse canlı verisine ulaşılamadı. Manuel girebilirsiniz."
-    }
+    veri = canlı_bist_veri_cek(symbol)
+    if veri["basarili"]:
+        return {
+            "durum": "ISLEM_GORUYOR",
+            "fiyat": veri["fiyat"],
+            "ad": veri["ad"],
+            "mesaj": f"🟢 Canlı Veri Alındı ({veri['kaynak']}): {symbol} borsada aktif!"
+        }
+    else:
+        return {
+            "durum": "BEKLEMEDE",
+            "fiyat": None,
+            "ad": symbol.upper(),
+            "mesaj": "🟡 Hisse işleme açılmamış veya verisine anlık ulaşılamıyor."
+        }
 
 # ----------------- CSS / STİL -----------------
 st.markdown("""
@@ -287,8 +311,8 @@ with tab1:
 
     st.divider()
 
-    with st.expander("➕ Halka Arz Ekle (Otomatik Sorgulamalı)", expanded=False):
-        sorgu_kod = st.text_input("Hisse Kodu (Örn: EMPAE veya BINBN):", key="sorgu_input").upper().strip()
+    with st.expander("➕ Halka Arz Ekle (Otomatik Canlı Sorgulama)", expanded=False):
+        sorgu_kod = st.text_input("Hisse Kodu (Örn: MASFN veya THYAO):", key="sorgu_input").upper().strip()
         
         otomatik_fiyat = 10.0
         otomatik_ad = ""
@@ -296,7 +320,7 @@ with tab1:
         if sorgu_kod:
             bilgi = hisse_durumunu_sorgula(sorgu_kod)
             if bilgi["durum"] == "ISLEM_GORUYOR":
-                st.success(f"{bilgi['mesaj']} (Son Fiyat: ₺{bilgi['fiyat']})")
+                st.success(f"{bilgi['mesaj']} (Son Canlı Fiyat: ₺{bilgi['fiyat']:.2f})")
                 otomatik_fiyat = float(bilgi['fiyat'])
                 otomatik_ad = bilgi['ad']
             else:
