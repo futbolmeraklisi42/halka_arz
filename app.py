@@ -366,8 +366,12 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
 # 1. Aktif Hisse Hesaplamaları
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
-sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40 * 3} 
 
+for e in ESKI_HALKA_ARZ_VERISI:
+    k_kar = (e["satis_fiyati"] - e["maliyet"]) * e["lot"]
+    gerceklesen_kar += k_kar
+    if k_kar > sampiyon_hisse["kar"]:
+        sampiyon_hisse = {"kod": e['kod'], "kar": k_kar}
 if not df_aktif.empty:
     for idx, row in df_aktif.iterrows():
         toplam_lot = safe_float(row['lot'], 1)
