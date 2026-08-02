@@ -290,8 +290,36 @@ st.markdown("""
         border-radius: 15px;
         border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .badge-sahip { background-color: #8b5cf6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+    .badge-sahip { background-color: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-satildi { background-color: #64748b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    
+    /* Özel Hisse Kart Tasarımı */
+    .hisse-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    .badge-kar-yesil {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid #10b981;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    .badge-zarar-kirmizi {
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid #ef4444;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 14px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -408,12 +436,11 @@ with tab1:
 
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim (Sade Görünüm)", "📜 Satılan & Geçmiş Hisseler"])
 
-    # --- SADELEŞTİRİLMİŞ AKTİF HİSSE KARTLARI ---
+    # --- ŞIK VE KUTU GÖRÜNÜMLÜ AKTİF HİSSE KARTLARI ---
     with sub_tab1:
         if df_aktif.empty:
             st.info("Şu an aktif portföyünde hisse bulunmuyor.")
         else:
-            # Hisse koduna göre grupla
             unique_kods = df_aktif["kod"].unique()
             
             for kod in unique_kods:
@@ -431,54 +458,63 @@ with tab1:
                 
                 yuzde_degisim = ((anlik_fiyat - birim_maliyet) / birim_maliyet) * 100 if birim_maliyet > 0 else 0
                 yuzde_str = f"+%{yuzde_degisim:.2f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.2f}"
-                kar_renk = "#10b981" if toplam_kar >= 0 else "#ef4444"
                 kar_str = f"+₺{toplam_kar:,.2f}" if toplam_kar >= 0 else f"-₺{abs(toplam_kar):,.2f}"
+                badge_class = "badge-kar-yesil" if toplam_kar >= 0 else "badge-zarar-kirmizi"
 
-                # SADE TEK KUTU (EXPANDER)
-                with st.expander(f"📈 **{kod}** — Toplam: {toplam_lot} Lot | Anlık: ₺{anlik_fiyat:.2f} ({yuzde_str}) | Kâr: {kar_str}", expanded=True):
+                # KUTU ŞEKLİNDE KART TASARIMI
+                with st.container(border=True):
+                    # Kapalı haldeki renkli ve şık kolonlar
+                    c1, c2, c3, c4 = st.columns([2.5, 2, 2.5, 3])
                     
-                    # Üst özet bilgisi
-                    c_info1, c_info2, c_info3 = st.columns(3)
-                    c_info1.write(f"🏢 **Şirket:** {sirket_adi}")
-                    c_info2.write(f"💵 **Toplam Maliyet:** ₺{toplam_maliyet:,.2f} (Birim: ₺{birim_maliyet:.2f})")
-                    c_info3.write(f"💰 **Toplam Güncel Değer:** ₺{toplam_guncel_deger:,.2f}")
-                    
-                    st.divider()
-                    st.markdown("#### 👥 Hesap/Kişi Dağılımı ve Satış İşlemleri")
+                    with c1:
+                        st.markdown(f"### 📈 **{kod}**")
+                        st.caption(f"{sirket_adi}")
+                    with c2:
+                        st.markdown("📦 **Toplam Lot**")
+                        st.markdown(f"**{toplam_lot} Lot**")
+                    with c3:
+                        st.markdown("💵 **Anlık Fiyat / Değişim**")
+                        st.markdown(f"**₺{anlik_fiyat:.2f}** (`{yuzde_str}`)")
+                    with c4:
+                        st.markdown("💰 **Toplam Kâr / Zarar**")
+                        st.markdown(f"<span class='{badge_class}'>{kar_str}</span>", unsafe_allow_html=True)
 
-                    # Kişilerin alt listesi
-                    for idx, row in sub_df.iterrows():
-                        sahip = str(row.get('sahip', 'Kendim'))
-                        lot = int(safe_float(row['lot'], 1))
-                        k_maliyet = lot * birim_maliyet
-                        k_deger = lot * anlik_fiyat
-                        k_kar = k_deger - k_maliyet
-                        k_kar_str = f"+₺{k_kar:,.2f}" if k_kar >= 0 else f"-₺{abs(k_kar):,.2f}"
-                        k_kar_renk = "#10b981" if k_kar >= 0 else "#ef4444"
+                    # AÇILIR DETAY MENÜSÜ
+                    with st.expander("👥 Kişi/Hesap Detaylarını Göster & İşlem Yap", expanded=False):
+                        st.caption(f"Maliyet: ₺{toplam_maliyet:,.2f} (Birim: ₺{birim_maliyet:.2f}) | Portföy Değeri: ₺{toplam_guncel_deger:,.2f}")
+                        st.divider()
 
-                        kc1, kc2, kc3, kc4 = st.columns([2, 3, 2, 2])
-                        with kc1:
-                            st.markdown(f"<span class='badge-sahip'>👤 {sahip}</span>", unsafe_allow_html=True)
-                            st.caption(f"📦 {lot} Lot")
-                        with kc2:
-                            st.write(f"Maliyet: ₺{k_maliyet:,.2f} ➔ Değer: **₺{k_deger:,.2f}**")
-                        with kc3:
-                            st.markdown(f"Kâr: <span style='color:{k_kar_renk}; font-weight:bold;'>{k_kar_str}</span>", unsafe_allow_html=True)
-                        with kc4:
-                            # Sadece bu kişininkini sat veya sil
-                            col_b1, col_b2 = st.columns(2)
-                            with col_b1:
-                                with st.popover("💵 Sat"):
-                                    st.write(f"**{sahip} - {kod} Satışı**")
-                                    satis_f = st.number_input("Satış Fiyatı (₺):", min_value=0.01, value=float(anlik_fiyat), step=0.01, key=f"s_inp_{idx}")
-                                    if st.button("Onayla", key=f"s_btn_{idx}"):
-                                        hisse_satis_yap(idx, satis_f)
+                        for idx, row in sub_df.iterrows():
+                            sahip = str(row.get('sahip', 'Kendim'))
+                            lot = int(safe_float(row['lot'], 1))
+                            k_maliyet = lot * birim_maliyet
+                            k_deger = lot * anlik_fiyat
+                            k_kar = k_deger - k_maliyet
+                            k_kar_str = f"+₺{k_kar:,.2f}" if k_kar >= 0 else f"-₺{abs(k_kar):,.2f}"
+                            k_kar_renk = "#10b981" if k_kar >= 0 else "#ef4444"
+
+                            kc1, kc2, kc3, kc4 = st.columns([2, 3, 2, 2])
+                            with kc1:
+                                st.markdown(f"<span class='badge-sahip'>👤 {sahip}</span>", unsafe_allow_html=True)
+                                st.caption(f"📦 {lot} Lot")
+                            with kc2:
+                                st.write(f"Maliyet: ₺{k_maliyet:,.2f} ➔ Değer: **₺{k_deger:,.2f}**")
+                            with kc3:
+                                st.markdown(f"Kâr: <span style='color:{k_kar_renk}; font-weight:bold;'>{k_kar_str}</span>", unsafe_allow_html=True)
+                            with kc4:
+                                col_b1, col_b2 = st.columns(2)
+                                with col_b1:
+                                    with st.popover("💵 Sat"):
+                                        st.write(f"**{sahip} - {kod} Satışı**")
+                                        satis_f = st.number_input("Satış Fiyatı (₺):", min_value=0.01, value=float(anlik_fiyat), step=0.01, key=f"s_inp_{idx}")
+                                        if st.button("Onayla", key=f"s_btn_{idx}"):
+                                            hisse_satis_yap(idx, satis_f)
+                                            st.rerun()
+                                with col_b2:
+                                    if st.button("🗑️ Sil", key=f"del_h_{idx}"):
+                                        hisse_sil(idx)
                                         st.rerun()
-                            with col_b2:
-                                if st.button("🗑️ Sil", key=f"del_h_{idx}"):
-                                    hisse_sil(idx)
-                                    st.rerun()
-                        st.write("---")
+                            st.write("---")
 
     with sub_tab2:
         if df_satilan.empty:
