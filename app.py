@@ -5,7 +5,6 @@ import json
 import re
 import random
 import gspread
-import plotly.express as px
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -411,12 +410,10 @@ with tab1:
         with c_left:
             st.markdown("### 📊 Varlık Dağılımı")
             chart_data = pd.DataFrame({
-                "Kategori": ["Aktif Hisseler", "Boştaki Nakit", "Cepte Kâr"],
                 "Tutar": [toplam_guncel_aktif, toplam_boştaki_nakit, max(gerceklesen_kar, 0)]
-            })
-            fig = px.pie(chart_data, values="Tutar", names="Kategori", hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
-            fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220)
-            st.plotly_chart(fig, use_container_width=True)
+            }, index=["Aktif Hisseler", "Boştaki Nakit", "Cepte Kâr"])
+            
+            st.bar_chart(chart_data)
 
         with c_right:
             st.markdown("### 🏆 Portföyün Yıldızı")
