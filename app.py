@@ -91,12 +91,19 @@ def veri_kaydet(worksheet_name, df):
 # --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
     df = verileri_getir("portfoy")
+    
+    # Kuruş Hatalarını Önleyen Dönüştürücü
+    try:
+        maliyet_val = float(str(maliyet).replace(',', '.'))
+    except:
+        maliyet_val = 0.0
+
     yeni_veri = pd.DataFrame([{
         "kod": kod,
         "ad": ad,
         "hesap_sayisi": int(hesap_sayisi),
         "lot": int(lot),
-        "maliyet": float(maliyet),
+        "maliyet": maliyet_val,
         "satis_fiyati": 0.0,
         "durum": "Aktif"
     }])
@@ -105,7 +112,12 @@ def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
 
 def hisse_satis_yap(index_no, satis_fiyati):
     df = verileri_getir("portfoy")
-    df.at[index_no, "satis_fiyati"] = float(satis_fiyati)
+    try:
+        satis_val = float(str(satis_fiyati).replace(',', '.'))
+    except:
+        satis_val = 0.0
+        
+    df.at[index_no, "satis_fiyati"] = satis_val
     df.at[index_no, "durum"] = "Satildi"
     veri_kaydet("portfoy", df)
 
@@ -117,10 +129,15 @@ def hisse_sil(index_no):
 # --- GELECEK ARZ İŞLEMLERİ ---
 def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
     df = verileri_getir("gelecek_arzlar")
+    try:
+        fiyat_val = float(str(fiyat).replace(',', '.'))
+    except:
+        fiyat_val = 0.0
+        
     yeni_veri = pd.DataFrame([{
         "kod": kod,
         "ad": ad,
-        "fiyat": float(fiyat),
+        "fiyat": fiyat_val,
         "talep_tarihi": str(talep_tarihi),
         "islem_tarihi": str(islem_tarihi),
         "durum": durum
@@ -192,7 +209,7 @@ def canlı_bist_veri_cek(symbol):
                 fiyat = float(d[0])
                 sirket_adi = d[1] if d[1] else symbol
                 return {"basarili": True, "fiyat": fiyat, "ad": sirket_adi, "kaynak": "TradingView"}
-    except Exception as e:
+    except Exception:
         pass
 
     return {"basarili": False, "fiyat": None, "ad": symbol, "kaynak": "Yok"}
@@ -273,8 +290,9 @@ with tab1:
     if not df_aktif.empty:
         for idx, row in df_aktif.iterrows():
             toplam_lot = int(row['hesap_sayisi']) * int(row['lot'])
-            toplam_yatirilan_aktif += (toplam_lot * float(row['maliyet']))
-            anlik_fiyat = get_bist_price(row['kod'], float(row['maliyet']))
+            maliyet_fiyat = float(str(row['maliyet']).replace(',', '.'))
+            toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
+            anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
             toplam_guncel_aktif += (toplam_lot * anlik_fiyat)
 
     potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
@@ -283,8 +301,11 @@ with tab1:
     if not df_satilan.empty:
         for idx, row in df_satilan.iterrows():
             toplam_lot = int(row['hesap_sayisi']) * int(row['lot'])
-            maliyet_tutar = toplam_lot * float(row['maliyet'])
-            satis_tutar = toplam_lot * float(row['satis_fiyati'])
+            maliyet_fiyat = float(str(row['maliyet']).replace(',', '.'))
+            satis_fiyati = float(str(row['satis_fiyati']).replace(',', '.'))
+            
+            maliyet_tutar = toplam_lot * maliyet_fiyat
+            satis_tutar = toplam_lot * satis_fiyati
             gerceklesen_kar += (satis_tutar - maliyet_tutar)
 
     col1, col2, col3, col4 = st.columns(4)
@@ -323,7 +344,7 @@ with tab1:
             col_a, col_b, col_c = st.columns(3)
             f_hesap = col_a.number_input("Kaç Hesap Girildi?", min_value=1, value=1, step=1)
             f_lot = col_b.number_input("Hesap Başı Düşen Lot:", min_value=1, value=10, step=1)
-            f_maliyet = col_c.number_input("Halka Arz Fiyatı (Hisse Başı ₺):", min_value=0.01, value=otomatik_fiyat, step=0.1)
+            f_maliyet = col_c.number_input("Halka Arz Fiyatı (Hisse Başı ₺):", min_value=0.01, value=otomatik_fiyat, step=0.01, format="%.2f")
             
             submit = st.form_submit_button("Portföye Kaydet")
             if submit:
@@ -343,7 +364,7 @@ with tab1:
                 ad = row['ad']
                 hesap_sayisi = int(row['hesap_sayisi'])
                 lot = int(row['lot'])
-                maliyet = float(row['maliyet'])
+                maliyet = float(str(row['maliyet']).replace(',', '.'))
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -352,7 +373,7 @@ with tab1:
                 kar = guncel_deger - toplam_maliyet
                 yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
-                yuzde_str = f"+%{yuzde_degisim:.1f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.1f}"
+                yuzde_str = f"+%{yuzde_degisim:.2f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.2f}"
                 
                 if kar >= 0:
                     kar_str = f"+₺{kar:,.2f}"
@@ -377,7 +398,7 @@ with tab1:
                     with c3:
                         with st.popover("💵 Satış Yap"):
                             st.write(f"**{kod} Satış Kaydı**")
-                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), key=f"s_input_{idx}")
+                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), step=0.01, format="%.2f", key=f"s_input_{idx}")
                             if st.button("Satışı Onayla", key=f"btn_sat_{idx}"):
                                 hisse_satis_yap(idx, satis_f)
                                 st.toast(f"{kod} satılanlara aktarıldı!")
@@ -398,8 +419,8 @@ with tab1:
                 ad = row['ad']
                 hesap_sayisi = int(row['hesap_sayisi'])
                 lot = int(row['lot'])
-                maliyet = float(row['maliyet'])
-                satis_fiyati = float(row['satis_fiyati'])
+                maliyet = float(str(row['maliyet']).replace(',', '.'))
+                satis_fiyati = float(str(row['satis_fiyati']).replace(',', '.'))
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -407,7 +428,7 @@ with tab1:
                 net_kar = toplam_satis_tutari - toplam_maliyet
                 kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
-                kar_orani_str = f"+%{kar_orani:.1f}" if kar_orani >= 0 else f"-%{abs(kar_orani):.1f}"
+                kar_orani_str = f"+%{kar_orani:.2f}" if kar_orani >= 0 else f"-%{abs(kar_orani):.2f}"
                 
                 if net_kar >= 0:
                     net_kar_str = f"+₺{net_kar:,.2f}"
@@ -450,7 +471,7 @@ with tab2:
             g_ad = cg2.text_input("Şirket Adı:")
             
             cg3, cg4, cg5 = st.columns(3)
-            g_fiyat = cg3.number_input("Halka Arz Fiyatı (₺):", min_value=0.0, value=15.0, step=0.5)
+            g_fiyat = cg3.number_input("Halka Arz Fiyatı (₺):", min_value=0.0, value=15.0, step=0.01, format="%.2f")
             g_talep = cg4.text_input("Talep Toplama Tarihi (Örn: 12-13 Ağustos):")
             g_islem = cg5.text_input("İşlem Tarihi (Örn: 18 Ağustos):")
             
@@ -471,7 +492,7 @@ with tab2:
         for idx, row in df_gelecek.iterrows():
             gkod = row['kod']
             gad = row['ad']
-            gfiyat = float(row['fiyat']) if str(row['fiyat']).replace('.','',1).isdigit() else 0.0
+            gfiyat = float(str(row['fiyat']).replace(',', '.')) if str(row['fiyat']).replace('.','',1).replace(',','',1).isdigit() else 0.0
             gtalep = row['talep_tarihi']
             gislem = row['islem_tarihi']
             gdurum = row['durum']
@@ -499,7 +520,7 @@ with tab2:
                         st.write("Düşen lot miktarını girip portföyüne ekle:")
                         p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{idx}")
                         p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{idx}")
-                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, key=f"gf_{idx}")
+                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, step=0.01, format="%.2f", key=f"gf_{idx}")
                         if st.button("Aktarmayı Onayla", key=f"g_btn_{idx}"):
                             veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, p_fiyat)
                             gelecek_arz_sil(idx)
