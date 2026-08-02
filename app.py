@@ -17,10 +17,20 @@ st.set_page_config(
 @st.cache_resource
 def get_gsheet_client():
     try:
+        # Secrets verisini kopyalayalım
         creds = dict(st.secrets["gcp_service_account"])
-        # Private key format düzeltmesi (Invalid Padding Fix)
+        
+        # Private key format düzeltmesi (Invalid Padding & PEM hatası çözümü)
         if "private_key" in creds:
-            creds["private_key"] = creds["private_key"].replace("\\n", "\n")
+            pk = creds["private_key"]
+            # Çift kaçış karakterlerini (\\n) gerçek alt satıra (\n) dönüştür
+            pk = pk.replace("\\n", "\n")
+            
+            # Eğer anahtar tırnak işaretleriyle sarmalanmışsa temizle
+            pk = pk.strip("'\"")
+            
+            creds["private_key"] = pk
+
         return gspread.service_account_from_dict(creds)
     except Exception as e:
         st.error(f"Google Auth Hatası: {e}")
