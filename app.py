@@ -17,10 +17,13 @@ st.set_page_config(
 @st.cache_resource
 def get_gsheet_client():
     try:
-        # Secrets'tan service account bilgilerini al
-        return gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+        creds = dict(st.secrets["gcp_service_account"])
+        # Private key format düzeltmesi
+        if "private_key" in creds:
+            creds["private_key"] = creds["private_key"].replace("\\n", "\n")
+        return gspread.service_account_from_dict(creds)
     except Exception as e:
-        st.error("Google Sheets bağlantı hatası! Lütfen Secrets alanını kontrol edin.")
+        st.error(f"Google Auth Hatası: {e}")
         return None
 
 def verileri_getir(worksheet_name):
@@ -31,10 +34,23 @@ def verileri_getir(worksheet_name):
         
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sh = client.open_by_url(sheet_url)
-        worksheet = sh.worksheet(worksheet_name)
+        
+        # Sayfa yoksa otomatik oluştur
+        try:
+            worksheet = sh.worksheet(worksheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
+            if worksheet_name == "portfoy":
+                worksheet.append_row(["kod", "ad", "hesap_sayisi", "lot", "maliyet", "satis_fiyati", "durum"])
+            elif worksheet_name == "gelecek_arzlar":
+                worksheet.append_row(["kod", "ad", "fiyat", "talep_tarihi", "islem_tarihi", "durum"])
+            elif worksheet_name == "borclar":
+                worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
+
         data = worksheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
+        st.error(f"Tablo Okuma Hatası [{worksheet_name}]: {e}")
         return pd.DataFrame()
 
 def veri_kaydet(worksheet_name, df):
@@ -43,11 +59,16 @@ def veri_kaydet(worksheet_name, df):
         if client:
             sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
             sh = client.open_by_url(sheet_url)
-            worksheet = sh.worksheet(worksheet_name)
+            
+            try:
+                worksheet = sh.worksheet(worksheet_name)
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
+
             worksheet.clear()
             worksheet.update([df.columns.values.tolist()] + df.values.tolist())
     except Exception as e:
-        st.error(f"Kaydetme hatası: {e}")
+        st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
 # --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
