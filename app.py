@@ -107,11 +107,15 @@ def hisse_sil(hisse_id):
 def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
     conn = sqlite3.connect("halka_arz.db")
     c = conn.cursor()
-    c.execute('''
-        INSERT INTO gelecek_arzlar (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum))
-    conn.commit()
+    # Mükerrer kaydı önlemek için önce kontrol et
+    c.execute("SELECT id FROM gelecek_arzlar WHERE ad = ? OR (kod = ? AND kod != 'TASLAK')", (ad, kod))
+    exists = c.fetchone()
+    if not exists:
+        c.execute('''
+            INSERT INTO gelecek_arzlar (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (kod, ad, fiyat, talep_tarihi, islem_tarihi, durum))
+        conn.commit()
     conn.close()
 
 def gelecek_arzlari_getir():
@@ -174,43 +178,33 @@ def borc_sil(borc_id):
     conn.commit()
     conn.close()
 
-# Veri tabanını başlat
 init_db()
 
-# ----------------- YENİ %100 YERLİ ANLIK BİST VERİ ÇEKİCİ -----------------
-@st.cache_data(ttl=60)  # Veriyi 60 saniye hafızada tutarak performansı artırır
+# ----------------- CANLI BİST VERİSİ -----------------
+@st.cache_data(ttl=60)
 def canlı_bist_veri_cek(symbol):
-    """
-    Yerel finans kaynaklarından anlık BIST verilerini canlı olarak çeker.
-    """
     symbol = symbol.upper().strip()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    # 1. YÖNTEM: İş Yatırım Servisi
+    # İş Yatırım
     try:
         url = f"https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/default.aspx?hisse={symbol}"
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, 'html.parser')
-            
-            # Fiyat bulma
             fiyat_element = soup.find("span", {"id": "ctl00_ctl58_g_1688ed84_cb8d_4541_b926_e3f940bb2b32_ctl00_lblSonFiyat"})
-            
             if fiyat_element:
                 fiyat_str = fiyat_element.text.strip().replace('.', '').replace(',', '.')
                 fiyat = float(fiyat_str)
-                
-                # Adı bulma
                 ad_element = soup.find("h1", {"class": "title"})
                 sirket_adi = ad_element.text.strip() if ad_element else symbol
-                
                 return {"basarili": True, "fiyat": fiyat, "ad": sirket_adi, "kaynak": "İş Yatırım"}
     except Exception:
         pass
 
-    # 2. YÖNTEM: Bigpara Servisi (Yedek)
+    # Bigpara (Yedek)
     try:
         url_bigpara = f"https://bigpara.hurriyet.com.tr/borsa/hisse-fiyatlari/{symbol}-detay/"
         res_bp = requests.get(url_bigpara, headers=headers, timeout=5)
@@ -251,6 +245,61 @@ def hisse_durumunu_sorgula(symbol):
             "ad": symbol.upper(),
             "mesaj": "🟡 Hisse işleme açılmamış veya verisine anlık ulaşılamıyor."
         }
+
+# ----------------- GELECEK HALKA ARZLARI WEBDEN ÇEKİCİ -----------------
+def gecelek_halka_arzlari_webden_cek():
+    """Halka arz sitelerinden güncel yaklaşan halka arz verilerini canlı olarak çeker."""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    eklenen_sayisi = 0
+    try:
+        url = "https://halkaarz.com/"
+        res = requests.get(url, headers=headers, timeout=8)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            # Ana sayfadaki halka arz kartlarını çek
+            items = soup.find_all("article", class_=re.compile("il-post"))
+            
+            for item in items:
+                try:
+                    # Şirket adı ve Kod
+                    title_elem = item.find("h3", class_="il-title")
+                    if not title_elem:
+                        continue
+                    sirket_ad = title_elem.text.strip()
+                    
+                    # Hisse Kodu
+                    kod_elem = item.find("span", class_="il-kod")
+                    kod = kod_elem.text.strip().upper() if kod_elem else "TASLAK"
+                    
+                    # Fiyat ve Tarih bilgileri
+                    fiyat = 0.0
+                    talep_tarihi = "Açıklanmadı"
+                    durum = "Taslak (SPK Bekliyor)"
+                    
+                    detail_texts = item.find_all("li")
+                    for li in detail_texts:
+                        txt = li.text.strip()
+                        if "TL" in txt or "₺" in txt:
+                            # Fiyatı yakala
+                            fiyat_match = re.search(r'(\d+[\.,]?\d*)\s*(TL|₺)', txt)
+                            if fiyat_match:
+                                fiyat = float(fiyat_match.group(1).replace(',', '.'))
+                        if "Talep" in txt or "Tarih" in txt:
+                            talep_tarihi = txt.replace("Talep Toplama Tarihi:", "").strip()
+                            durum = "Talep Toplanıyor"
+
+                    # Database'e kaydet
+                    gelecek_arz_ekle(kod, sirket_ad, fiyat, talep_tarihi, "", durum)
+                    eklenen_sayisi += 1
+                except Exception:
+                    continue
+            return True, eklenen_sayisi
+    except Exception as e:
+        return False, str(e)
+    return False, "Veri bulunamadı"
 
 # ----------------- CSS / STİL -----------------
 st.markdown("""
@@ -436,11 +485,22 @@ with tab1:
 # =========================================================
 with tab2:
     st.title("📅 Gelecek Halka Arzlar & Takvim")
-    st.caption("Yaklaşan halka arzları, talep toplama ve borsa işlem tarihlerini buradan takip edebilirsin.")
+    st.caption("Yaklaşan halka arzları, talep toplama ve borsa işlem tarihlerini canlı olarak takip edebilirsin.")
+
+    col_btn1, col_btn2 = st.columns([1, 3])
+    with col_btn1:
+        if st.button("🔄 Web'den Güncel Takvimi Çek", type="primary"):
+            with st.spinner("Güncel halka arzlar çekiliyor..."):
+                basari, mesaj = gecelek_halka_arzlari_webden_cek()
+                if basari:
+                    st.success("✅ Gelecek halka arz verileri internetten güncellendi!")
+                    st.rerun()
+                else:
+                    st.error(f"Veri çekilemedi: {mesaj}")
 
     df_gelecek = gelecek_arzlari_getir()
 
-    with st.expander("➕ Gelecek Halka Arz Kaydı Ekle", expanded=False):
+    with st.expander("➕ Manuel Gelecek Halka Arz Ekle", expanded=False):
         with st.form("yeni_gelecek_arz", clear_on_submit=True):
             cg1, cg2 = st.columns(2)
             g_kod = cg1.text_input("Hisse Kodu (Belirsizse Taslak yaz):").upper().strip()
@@ -463,7 +523,7 @@ with tab2:
     st.subheader("📋 Yaklaşan & Onaylanan Halka Arzlar")
     
     if df_gelecek.empty:
-        st.info("Henüz takvime eklenmiş gelecek halka arz bulunmuyor.")
+        st.info("Henüz takvime eklenmiş halka arz bulunmuyor. Yukarıdaki '🔄 Web'den Güncel Takvimi Çek' butonuna basarak anında doldurabilirsin!")
     else:
         for _, row in df_gelecek.iterrows():
             gid = row['id']
@@ -486,7 +546,7 @@ with tab2:
                 with gc1:
                     st.markdown(f"### {gkod} <span class='{badge_style}'>{gdurum}</span>", unsafe_allow_html=True)
                     st.write(f"**{gad}**")
-                    st.write(f"**Halka Arz Fiyatı:** ₺{gfiyat:.2f}")
+                    st.write(f"**Halka Arz Fiyatı:** ₺{gfiyat:.2f}" if gfiyat > 0 else "**Halka Arz Fiyatı:** Açıklanmadı")
 
                 with gc2:
                     st.write(f"📅 **Talep Toplama:** {gtalep if gtalep else 'Açıklanmadı'}")
@@ -497,8 +557,9 @@ with tab2:
                         st.write("Düşen lot miktarını girip portföyüne ekle:")
                         p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{gid}")
                         p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{gid}")
+                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, key=f"gf_{gid}")
                         if st.button("Aktarmayı Onayla", key=f"g_btn_{gid}"):
-                            veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, gfiyat)
+                            veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, p_fiyat)
                             gelecek_arz_sil(gid)
                             st.toast("Hisse portföyüne başarıyla aktarıldı!")
                             st.rerun()
