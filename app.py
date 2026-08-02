@@ -260,25 +260,23 @@ def hisse_durumunu_sorgula(symbol):
 
 # ----------------- ESKİ HALKA ARZ GEÇMİŞİ VERİSİ -----------------
 ESKI_HALKA_ARZ_VERISI = [
-    {"kod": "PAHOL", "alis": 1.50, "satis": 1.68, "lot": 2800, "hesap": 3, "kar": 1512.00},
-    {"kod": "ZERGY", "alis": 13.00, "satis": 13.22, "lot": 193, "hesap": 3, "kar": 127.38},
-    {"kod": "ARFYE", "alis": 19.50, "satis": 31.34, "lot": 47, "hesap": 3, "kar": 1669.44},
-    {"kod": "MEYSU", "alis": 7.50, "satis": 10.96, "lot": 128, "hesap": 3, "kar": 1328.64},
-    {"kod": "FRMPL", "alis": 30.24, "satis": 44.24, "lot": 40, "hesap": 3, "kar": 1680.00},
-    {"kod": "ZGYO", "alis": 9.77, "satis": 12.98, "lot": 111, "hesap": 3, "kar": 1068.93},
-    {"kod": "UCAYM", "alis": 18.00, "satis": 35.00, "lot": 54, "hesap": 3, "kar": 2754.00},
-    {"kod": "AKHAN", "alis": 21.50, "satis": 31.46, "lot": 35, "hesap": 3, "kar": 1045.80},
-    {"kod": "NETCD", "alis": 46.00, "satis": 89.50, "lot": 25, "hesap": 3, "kar": 3060.00},
-    {"kod": "BESTE", "alis": 14.70, "satis": 35.50, "lot": 71, "hesap": 3, "kar": 4430.40},
-    {"kod": "ATATR", "alis": 11.20, "satis": 16.39, "lot": 178, "hesap": 3, "kar": 2771.46},
-    {"kod": "EMPAE", "alis": 22.00, "satis": 37.30, "lot": 20, "hesap": 4, "kar": 1224.00},
-    {"kod": "SVGYO", "alis": 3.64, "satis": 6.43, "lot": 174, "hesap": 4, "kar": 1941.84},
-    {"kod": "LXGYO", "alis": 12.05, "satis": 20.94, "lot": 55, "hesap": 4, "kar": 1955.80},
-    {"kod": "MCARD", "alis": 80.00, "satis": 123.70, "lot": 9, "hesap": 4, "kar": 1573.20},
-    {"kod": "AAGYO", "alis": 21.10, "satis": 23.58, "lot": 144, "hesap": 4, "kar": 1428.48},
+    {"kod": "PAHOL", "ad": "Panora GYO", "maliyet": 1.50, "satis_fiyati": 1.68, "lot": 2800, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "ZERGY", "ad": "Zer GYO", "maliyet": 13.00, "satis_fiyati": 13.22, "lot": 193, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "ARFYE", "ad": "Arf Bio Enerji", "maliyet": 19.50, "satis_fiyati": 31.34, "lot": 47, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "MEYSU", "ad": "Meysu Gıda", "maliyet": 7.50, "satis_fiyati": 10.96, "lot": 128, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "FRMPL", "ad": "Formplast", "maliyet": 30.24, "satis_fiyati": 44.24, "lot": 40, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "ZGYO", "ad": "Ziraat GYO", "maliyet": 9.77, "satis_fiyati": 12.98, "lot": 111, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "UCAYM", "ad": "Üçler Madencilik", "maliyet": 18.00, "satis_fiyati": 35.00, "lot": 54, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "AKHAN", "ad": "Akhan Un", "maliyet": 21.50, "satis_fiyati": 31.46, "lot": 35, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "NETCD", "ad": "Netcad Yazılım", "maliyet": 46.00, "satis_fiyati": 89.50, "lot": 25, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "BESTE", "ad": "Beste Tabak", "maliyet": 14.70, "satis_fiyati": 35.50, "lot": 71, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "ATATR", "ad": "Atateks", "maliyet": 11.20, "satis_fiyati": 16.39, "lot": 178, "sahip": "Ortak (3 Hesap)", "is_eski": True},
+    {"kod": "EMPAE", "ad": "Empaer Ambalaj", "maliyet": 22.00, "satis_fiyati": 37.30, "lot": 20, "sahip": "Ortak (4 Hesap)", "is_eski": True},
+    {"kod": "SVGYO", "ad": "Sevil GYO", "maliyet": 3.64, "satis_fiyati": 6.43, "lot": 174, "sahip": "Ortak (4 Hesap)", "is_eski": True},
+    {"kod": "LXGYO", "ad": "Lux GYO", "maliyet": 12.05, "satis_fiyati": 20.94, "lot": 55, "sahip": "Ortak (4 Hesap)", "is_eski": True},
+    {"kod": "MCARD", "ad": "MasterCard TR", "maliyet": 80.00, "satis_fiyati": 123.70, "lot": 9, "sahip": "Ortak (4 Hesap)", "is_eski": True},
+    {"kod": "AAGYO", "ad": "Ağaoğlu GYO", "maliyet": 21.10, "satis_fiyati": 23.58, "lot": 144, "sahip": "Ortak (4 Hesap)", "is_eski": True},
 ]
-df_eski_arzlar = pd.DataFrame(ESKI_HALKA_ARZ_VERISI)
-eski_arzlar_toplam_kar = df_eski_arzlar["kar"].sum()
 
 # ----------------- CSS / STİL -----------------
 st.markdown("""
@@ -305,6 +303,7 @@ st.markdown("""
     
     .badge-sahip { background-color: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-satildi { background-color: #64748b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .badge-eski { background-color: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
     
     .badge-kar-yesil {
         background-color: rgba(16, 185, 129, 0.2);
@@ -359,7 +358,7 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
 # 1. Aktif Hisse Hesaplamaları
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
-sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40} # Varsayılan eski rekor
+sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40} # Varsayılan en yüksek kâr
 
 if not df_aktif.empty:
     for idx, row in df_aktif.iterrows():
@@ -375,8 +374,13 @@ if not df_aktif.empty:
         if kar_val > sampiyon_hisse["kar"]:
             sampiyon_hisse = {"kod": row['kod'], "kar": kar_val}
 
-# 2. Satılan Hisse Kârı (Sheet'teki + Eski Halka Arzlar)
-gerceklesen_kar = eski_arzlar_toplam_kar
+# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar)
+gerceklesen_kar = 0.0
+
+# Eski 16 arzın kârını ekle
+for e in ESKI_HALKA_ARZ_VERISI:
+    k_kar = (e["satis_fiyati"] - e["maliyet"]) * e["lot"]
+    gerceklesen_kar += k_kar
 
 if not df_satilan.empty:
     for idx, row in df_satilan.iterrows():
@@ -398,8 +402,8 @@ if not df_nakit.empty:
     for _, row in df_nakit.iterrows():
         toplam_boştaki_nakit += safe_float(row['tutar'])
 
-# 4. Toplam Tüm Para
-toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit + gerceklesen_kar
+# 4. GÜNCELLENDİ: TOPLAM NET VARLIĞIM (SADECE ELDEKİ PARALAR: HİSSE + NAKİT)
+toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit
 
 # ----------------- HERO BANNER -----------------
 st.markdown(f"""
@@ -409,10 +413,9 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ----------------- TAB YAPISI (DÜZELTİLDİ: YENİ SEKMELER EKLENDİ) -----------------
-tab1, tab_gecmis, tab2, tab3 = st.tabs([
-    "🚀 Portföyüm & Analiz", 
-    "📜 Halka Arz Geçmişi & İstatistikler", 
+# ----------------- TAB YAPISI -----------------
+tab1, tab2, tab3 = st.tabs([
+    "🚀 Portföyüm & Hisseler", 
     "💵 Boştaki Nakit & Varlıklar", 
     "💳 Borç & Kredi Takip"
 ])
@@ -422,10 +425,10 @@ tab1, tab_gecmis, tab2, tab3 = st.tabs([
 # =========================================================
 with tab1:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📈 Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
-    col2.metric("💵 Boştaki Nakit Para", f"₺{toplam_boştaki_nakit:,.2f}")
-    col3.metric("💰 Tüm Zamanlar Net Kâr", f"₺{gerceklesen_kar:,.2f}")
-    col4.metric("🏆 TOPLAM NET VARLIĞIM", f"₺{toplam_toplam_varlik:,.2f}")
+    col1.metric("📈 Aktif Hisselerdeki Para", f"₺{toplam_guncel_aktif:,.2f}")
+    col2.metric("💵 Cebimdeki / Boşta Nakit", f"₺{toplam_boştaki_nakit:,.2f}")
+    col3.metric("🏆 GERÇEK TOPLAM VARLIĞIM", f"₺{toplam_toplam_varlik:,.2f}")
+    col4.metric("💰 Tüm Zamanlar Net Kârı", f"₺{gerceklesen_kar:,.2f}")
 
     st.divider()
 
@@ -435,8 +438,8 @@ with tab1:
         with c_left:
             st.markdown("### 📊 Varlık Dağılımı")
             chart_data = pd.DataFrame({
-                "Tutar": [toplam_guncel_aktif, toplam_boştaki_nakit, max(gerceklesen_kar, 0)]
-            }, index=["Aktif Hisseler", "Boştaki Nakit", "Tüm Kârlar"])
+                "Tutar": [toplam_guncel_aktif, toplam_boştaki_nakit]
+            }, index=["Aktif Hisseler", "Boştaki Nakit"])
             
             st.bar_chart(chart_data)
 
@@ -445,7 +448,7 @@ with tab1:
             st.info(f"""
             🌟 **Tüm Zamanların En Çok Kâr Ettiren Hissesi:** **{sampiyon_hisse['kod']}**
             
-            💰 Katkısı: **+₺{sampiyon_hisse['kar']:,.2f}**
+            💰 Kazandırdığı Net Kâr: **+₺{sampiyon_hisse['kar']:,.2f}**
             
             *Mükemmel zamanlama ile harika bir kazanç elde edilmiş!* 🔥
             """)
@@ -503,7 +506,7 @@ with tab1:
                         st.success(f"✅ {f_kod} seçilen kişiler için kaydedildi!")
                         st.rerun()
 
-    sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim (Sade Görünüm)", "📜 Yeni Satılan Hisseler"])
+    sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan Hisselerim (Tüm Geçmiş)"])
 
     with sub_tab1:
         if df_aktif.empty:
@@ -580,10 +583,13 @@ with tab1:
                                         st.rerun()
                             st.write("---")
 
+    # SATILAN HİSSELERİM SEKMESİ (YENİ SATTIKLARIN + GEÇMİŞ 16 ESKİ HALKA ARZ)
     with sub_tab2:
-        if df_satilan.empty:
-            st.info("Sistemde yeni satılan hisse kaydı bulunmuyor.")
-        else:
+        st.subheader("📜 Tüm Satılan Hisselerin Listesi")
+        
+        # 1. Yeni Satılan Hisseler (Google Sheets'ten gelenler)
+        if not df_satilan.empty:
+            st.markdown("#### 🆕 Yakın Zamanda Satılanlar")
             for idx, row in df_satilan.iterrows():
                 kod = str(row['kod'])
                 ad = str(row['ad'])
@@ -609,53 +615,45 @@ with tab1:
                         st.caption(f"📦 **{lot} Lot**")
                     with c2:
                         st.write(f"**Maliyet:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} ({kar_orani_str})")
-                        st.markdown(f"**Cebine Giren Kâr:** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Elde Edilen Kâr:** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
                     with c3:
                         if st.button("🗑️ Sil", key=f"del_s_{idx}"):
                             hisse_sil(idx)
                             st.rerun()
 
-# =========================================================
-# TAB 2: HALKA ARZ GEÇMİŞİ & İSTATİSTİKLER (16 ADET HİSSEYİ İÇERİR)
-# =========================================================
-with tab_gecmis:
-    st.title("📜 Geçmiş Halka Arz Arşivi & İstatistikler")
-    st.caption("Eskiden katıldığın ve tamamını sattığın halka arzların detaylı dökümü ve performans analizleri.")
+        st.divider()
 
-    # METRİKLER
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.metric("📦 Toplam Tamamlanan Arz", f"{len(df_eski_arzlar)} Hisse")
-    col_m2.metric("💰 Tamamlanan Net Kâr", f"₺{eski_arzlar_toplam_kar:,.2f}")
-    col_m3.metric("🎯 Ort. Hisse Başı Kâr", f"₺{eski_arzlar_toplam_kar / len(df_eski_arzlar):,.2f}")
-    
-    max_row = df_eski_arzlar.loc[df_eski_arzlar['kar'].idxmax()]
-    col_m4.metric("⭐ En Yüksek Kâr", f"#{max_row['kod']}", f"+₺{max_row['kar']:,.2f}")
+        # 2. Geçmiş Halka Arz Arşivi (16 adet eski hisse)
+        st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi (Tamamlananlar)")
+        for idx, e in enumerate(ESKI_HALKA_ARZ_VERISI):
+            kod = e["kod"]
+            ad = e["ad"]
+            maliyet = e["maliyet"]
+            satis_fiyati = e["satis_fiyati"]
+            lot = e["lot"]
+            sahip = e["sahip"]
+            
+            toplam_maliyet = lot * maliyet
+            toplam_satis_tutari = lot * satis_fiyati
+            net_kar = toplam_satis_tutari - toplam_maliyet
+            kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100 if maliyet > 0 else 0
+            
+            kar_orani_str = f"+%{kar_orani:.2f}" if kar_orani >= 0 else f"-%{abs(kar_orani):.2f}"
+            net_kar_str = f"+₺{net_kar:,.2f}" if net_kar >= 0 else f"-₺{abs(net_kar):,.2f}"
+            net_kar_renk = "#10b981" if net_kar >= 0 else "#ef4444"
 
-    st.divider()
-
-    # KÂR GRAFİĞİ
-    st.subheader("📊 Halka Arz Hisse Başı Net Kâr Grafiği")
-    chart_df = df_eski_arzlar.set_index("kod")[["kar"]]
-    st.bar_chart(chart_df)
-
-    st.divider()
-
-    # DETAYLI TABLO
-    st.subheader("📋 Geçmiş İşlem Detay Tablosu")
-    
-    df_gosterim = df_eski_arzlar.copy()
-    df_gosterim["Kar_Orani_%"] = ((df_gosterim["satis"] - df_gosterim["alis"]) / df_gosterim["alis"]) * 100
-    df_gosterim["Kar_Orani_%"] = df_gosterim["Kar_Orani_%"].map("{:.2f}%".format)
-    df_gosterim["alis"] = df_gosterim["alis"].map("₺{:.2f}".format)
-    df_gosterim["satis"] = df_gosterim["satis"].map("₺{:.2f}".format)
-    df_gosterim["kar"] = df_gosterim["kar"].map("₺{:,.2f}".format)
-    
-    df_gosterim.columns = ["Hisse Kodu", "Alış Fiyatı", "Satış Fiyatı", "Lot", "Hesap Sayısı", "Net Kâr", "Kâr Oranı (%)"]
-    
-    st.dataframe(df_gosterim, use_container_width=True)
+            with st.container(border=True):
+                c1, c2 = st.columns([2, 2])
+                with c1:
+                    st.markdown(f"### {kod} <span class='badge-eski'>🏛️ ARŞİV ({sahip})</span>", unsafe_allow_html=True)
+                    st.write(f"**{ad}**")
+                    st.caption(f"📦 **{lot} Lot**")
+                with c2:
+                    st.write(f"**Alış:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} ({kar_orani_str})")
+                    st.markdown(f"**Elde Edilen Net Kâr:** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
-# TAB 3: BOŞTA DURAN NAKİT & VARLIKLAR
+# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
 # =========================================================
 with tab2:
     st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
@@ -709,7 +707,7 @@ with tab2:
                         st.rerun()
 
 # =========================================================
-# TAB 4: BORÇ & KREDİ TAKİP
+# TAB 3: BORÇ & KREDİ TAKİP
 # =========================================================
 with tab3:
     st.title("💳 Borç & Kredi Defteri")
@@ -805,7 +803,7 @@ with tab3:
     net_servet = toplam_toplam_varlik - kalan_toplam_borc
     
     st.info(f"""
-    * 🏆 **Toplam Brüt Varlıklar (Hisse + Nakit + Kâr):** ₺{toplam_toplam_varlik:,.2f}
+    * 🏆 **Gerçek Toplam Varlıklar (Hisse + Nakit):** ₺{toplam_toplam_varlik:,.2f}
     * 💳 **Kalan Toplam Borçlar:** ₺{kalan_toplam_borc:,.2f}
     """)
     
