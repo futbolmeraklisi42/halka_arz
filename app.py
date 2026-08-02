@@ -22,14 +22,9 @@ def get_gsheet_client():
         
         if "private_key" in creds:
             pk = str(creds["private_key"]).strip()
-            
-            # Başta/sonda kalan fazla tırnakları kaldır
             pk = pk.strip("'\"")
-            
-            # Escape edilmiş \n karakterlerini gerçek yeni satıra dönüştür
             pk = pk.replace("\\n", "\n")
             
-            # PEM gövdesinden geçersiz nokta (.) ve sembolleri temizle
             lines = pk.split("\n")
             cleaned_lines = []
             for line in lines:
@@ -37,7 +32,6 @@ def get_gsheet_client():
                 if "BEGIN PRIVATE KEY" in line_str or "END PRIVATE KEY" in line_str:
                     cleaned_lines.append(line_str)
                 else:
-                    # Sadece geçerli Base64 karakterlerini tut
                     clean_body = re.sub(r'[^A-Za-z0-9+/=]', '', line_str)
                     if clean_body:
                         cleaned_lines.append(clean_body)
@@ -49,6 +43,8 @@ def get_gsheet_client():
         st.error(f"Google Auth Hatası: {e}")
         return None
 
+# API Kotasını korumak için 5 Dakika (300sn) Caching Yapıyoruz
+@st.cache_data(ttl=300, show_spinner="Veriler çekiliyor...")
 def verileri_getir(worksheet_name):
     try:
         client = get_gsheet_client()
@@ -89,7 +85,8 @@ def veri_kaydet(worksheet_name, df):
 
             worksheet.clear()
             worksheet.update(range_name='A1', values=[df.columns.values.tolist()] + df.values.tolist())
-            st.cache_resource.clear()
+            # Veri kaydolduğunda önbelleği temizleyip yeni verileri hemen göster
+            st.cache_data.clear()
     except Exception as e:
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
@@ -171,7 +168,7 @@ def borc_sil(index_no):
     veri_kaydet("borclar", df)
 
 # ----------------- CANLI BİST VERİSİ -----------------
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def canlı_bist_veri_cek(symbol):
     symbol = symbol.upper().strip()
     headers = {
@@ -252,6 +249,13 @@ st.markdown("""
     .badge-islem { background-color: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
+
+# Manuel Önbellek Yenileme Butonu
+with st.sidebar:
+    st.write("🔄 **Veri Güncelleme**")
+    if st.button("Verileri Yenile"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ----------------- TAB YAPISI -----------------
 tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "📅 Halka Arz Takvimi", "💳 Borç & Kredi Takip"])
