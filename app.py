@@ -17,7 +17,6 @@ st.set_page_config(
 @st.cache_resource
 def get_gsheet_client():
     try:
-        # Secrets'tan dictionary kopyası al
         creds = dict(st.secrets["gcp_service_account"])
         
         if "private_key" in creds:
@@ -43,7 +42,7 @@ def get_gsheet_client():
         st.error(f"Google Auth Hatası: {e}")
         return None
 
-# API Kotasını korumak için 5 Dakika (300sn) Caching Yapıyoruz
+# API Kotasını korumak için 5 Dakika (300sn) Caching
 @st.cache_data(ttl=300, show_spinner="Veriler çekiliyor...")
 def verileri_getir(worksheet_name):
     try:
@@ -85,7 +84,6 @@ def veri_kaydet(worksheet_name, df):
 
             worksheet.clear()
             worksheet.update(range_name='A1', values=[df.columns.values.tolist()] + df.values.tolist())
-            # Veri kaydolduğunda önbelleği temizleyip yeni verileri hemen göster
             st.cache_data.clear()
     except Exception as e:
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
@@ -297,8 +295,13 @@ with tab1:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Aktif Yatırılan", f"₺{toplam_yatirilan_aktif:,.2f}")
     col2.metric("Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
-    col3.metric("Anlık Potansiyel Kâr", f"₺{potansiyel_kar:,.2f}", f"+₺{potansiyel_kar:,.2f}")
-    col4.metric("Cepteki Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}", f"₺{gerceklesen_kar:,.2f}")
+    
+    # Metrik Renkleri
+    pot_delta_str = f"+₺{potansiyel_kar:,.2f}" if potansiyel_kar >= 0 else f"-₺{abs(potansiyel_kar):,.2f}"
+    col3.metric("Anlık Potansiyel Kâr", f"₺{potansiyel_kar:,.2f}", pot_delta_str)
+    
+    gercek_delta_str = f"+₺{gerceklesen_kar:,.2f}" if gerceklesen_kar >= 0 else f"-₺{abs(gerceklesen_kar):,.2f}"
+    col4.metric("Cepteki Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}", gercek_delta_str)
 
     st.divider()
 
@@ -325,7 +328,7 @@ with tab1:
             col_a, col_b, col_c = st.columns(3)
             f_hesap = col_a.number_input("Kaç Hesap Girildi?", min_value=1, value=1, step=1)
             f_lot = col_b.number_input("Hesap Başı Düşen Lot:", min_value=1, value=10, step=1)
-            f_maliyet = col_c.number_input("Halka Arz Fiyatı (₺):", min_value=0.01, value=otomatik_fiyat, step=0.1)
+            f_maliyet = col_c.number_input("Halka Arz Fiyatı (Hisse Başı ₺):", min_value=0.01, value=otomatik_fiyat, step=0.1)
             
             submit = st.form_submit_button("Portföye Kaydet")
             if submit:
@@ -354,6 +357,17 @@ with tab1:
                 kar = guncel_deger - toplam_maliyet
                 yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
+                # Düzeltme 1: Değişim Metni (+ / - Karışıklığı Çözüldü)
+                yuzde_str = f"+%{yuzde_degisim:.1f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.1f}"
+                
+                # Düzeltme 2 & 3: Kar/Zarar Metni ve Dinamik Renk (Kırmızı / Yeşil)
+                if kar >= 0:
+                    kar_str = f"+₺{kar:,.2f}"
+                    kar_renk = "#10b981"  # Yeşil
+                else:
+                    kar_str = f"-₺{abs(kar):,.2f}"
+                    kar_renk = "#ef4444"  # Kırmızı
+
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
                     
@@ -363,9 +377,9 @@ with tab1:
                         st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
                     
                     with c2:
-                        st.write(f"**Anlık Fiyat:** ₺{anlik_fiyat:.2f} (%+{yuzde_degisim:.1f})")
+                        st.write(f"**Anlık Fiyat:** ₺{anlik_fiyat:.2f} ({yuzde_str})")
                         st.write(f"**Maliyet:** ₺{toplam_maliyet:,.2f} ➔ **Değer:** ₺{guncel_deger:,.2f}")
-                        st.markdown(f"**Kâr / Zarar:** <span style='color:#10b981; font-weight:bold;'>+₺{kar:,.2f}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Kâr / Zarar:** <span style='color:{kar_renk}; font-weight:bold;'>{kar_str}</span>", unsafe_allow_html=True)
                         
                     with c3:
                         with st.popover("💵 Satış Yap"):
@@ -400,6 +414,15 @@ with tab1:
                 net_kar = toplam_satis_tutari - toplam_maliyet
                 kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
+                kar_orani_str = f"+%{kar_orani:.1f}" if kar_orani >= 0 else f"-%{abs(kar_orani):.1f}"
+                
+                if net_kar >= 0:
+                    net_kar_str = f"+₺{net_kar:,.2f}"
+                    net_kar_renk = "#10b981" # Yeşil
+                else:
+                    net_kar_str = f"-₺{abs(net_kar):,.2f}"
+                    net_kar_renk = "#ef4444" # Kırmızı
+
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
                     
@@ -409,9 +432,9 @@ with tab1:
                         st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
                     
                     with c2:
-                        st.write(f"**Maliyet:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} (%+{kar_orani:.1f})")
+                        st.write(f"**Maliyet:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} ({kar_orani_str})")
                         st.write(f"**Harcanan:** ₺{toplam_maliyet:,.2f} ➔ **Ele Geçen:** ₺{toplam_satis_tutari:,.2f}")
-                        st.markdown(f"**Cebine Giren Kâr:** <span style='color:#10b981; font-weight:bold;'>+₺{net_kar:,.2f}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Cebine Giren Kâr:** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
                         
                     with c3:
                         st.write("")
