@@ -71,8 +71,6 @@ def verileri_getir(worksheet_name):
             worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
             if worksheet_name == "portfoy":
                 worksheet.append_row(["kod", "ad", "sahip", "lot", "maliyet", "satis_fiyati", "durum"])
-            elif worksheet_name == "gelecek_arzlar":
-                worksheet.append_row(["kod", "ad", "fiyat", "talep_tarihi", "islem_tarihi", "durum"])
             elif worksheet_name == "borclar":
                 worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
             elif worksheet_name == "nakitler":
@@ -86,8 +84,6 @@ def verileri_getir(worksheet_name):
                 df["maliyet"] = df["maliyet"].apply(safe_float)
                 df["satis_fiyati"] = df["satis_fiyati"].apply(safe_float)
                 df["lot"] = df["lot"].apply(lambda x: int(safe_float(x, 1)))
-            elif worksheet_name == "gelecek_arzlar":
-                df["fiyat"] = df["fiyat"].apply(safe_float)
             elif worksheet_name == "borclar":
                 df["toplam_tutar"] = df["toplam_tutar"].apply(safe_float)
                 df["odenen_tutar"] = df["odenen_tutar"].apply(safe_float)
@@ -152,25 +148,6 @@ def hisse_sil(index_no):
     df = verileri_getir("portfoy")
     df = df.drop(index_no).reset_index(drop=True)
     veri_kaydet("portfoy", df)
-
-# --- GELECEK ARZ İŞLEMLERİ ---
-def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
-    df = verileri_getir("gelecek_arzlar")
-    yeni_veri = pd.DataFrame([{
-        "kod": str(kod).upper().strip(),
-        "ad": str(ad),
-        "fiyat": safe_float(fiyat),
-        "talep_tarihi": str(talep_tarihi),
-        "islem_tarihi": str(islem_tarihi),
-        "durum": durum
-    }])
-    df = pd.concat([df, yeni_veri], ignore_index=True)
-    veri_kaydet("gelecek_arzlar", df)
-
-def gelecek_arz_sil(index_no):
-    df = verileri_getir("gelecek_arzlar")
-    df = df.drop(index_no).reset_index(drop=True)
-    veri_kaydet("gelecek_arzlar", df)
 
 # --- BORÇ İŞLEMLERİ ---
 def borc_ekle(baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama):
@@ -293,15 +270,6 @@ st.markdown("""
     .badge-sahip { background-color: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-satildi { background-color: #64748b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
     
-    /* Özel Hisse Kart Tasarımı */
-    .hisse-card {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 12px;
-        padding: 12px 18px;
-        margin-bottom: 8px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    }
     .badge-kar-yesil {
         background-color: rgba(16, 185, 129, 0.2);
         color: #10b981;
@@ -330,8 +298,8 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# ----------------- TAB YAPISI -----------------
-tab1, tab2, tab3, tab4 = st.tabs(["🚀 Portföyüm", "💵 Boştaki Nakit & Varlıklar", "📅 Halka Arz Takvimi", "💳 Borç & Kredi Takip"])
+# ----------------- TAB YAPISI (Takvim Kaldırıldı) -----------------
+tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "💵 Boştaki Nakit & Varlıklar", "💳 Borç & Kredi Takip"])
 
 # =========================================================
 # TAB 1: HALKA ARZ PORTFÖYÜ
@@ -340,6 +308,7 @@ with tab1:
     st.title("🚀 Halka Arz Portföyüm")
     
     df_portfoy = verileri_getir("portfoy")
+    df_nakit = verileri_getir("nakitler")
     
     df_aktif = pd.DataFrame()
     df_satilan = pd.DataFrame()
@@ -348,6 +317,7 @@ with tab1:
         df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
         df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
 
+    # 1. Aktif Hisse Hesaplamaları
     toplam_yatirilan_aktif = 0.0
     toplam_guncel_aktif = 0.0
     if not df_aktif.empty:
@@ -360,6 +330,7 @@ with tab1:
 
     potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
 
+    # 2. Satılan Hisse Kârı
     gerceklesen_kar = 0.0
     if not df_satilan.empty:
         for idx, row in df_satilan.iterrows():
@@ -371,15 +342,21 @@ with tab1:
             satis_tutar = toplam_lot * satis_fiyati
             gerceklesen_kar += (satis_tutar - maliyet_tutar)
 
+    # 3. Boştaki Nakit Hesaplaması
+    toplam_boştaki_nakit = 0.0
+    if not df_nakit.empty:
+        for _, row in df_nakit.iterrows():
+            toplam_boştaki_nakit += safe_float(row['tutar'])
+
+    # 4. Toplam Tüm Para (Varlık)
+    toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit + gerceklesen_kar
+
+    # GENEL ÖZET METRİKLERİ
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Aktif Yatırılan", f"₺{toplam_yatirilan_aktif:,.2f}")
-    col2.metric("Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
-    
-    pot_delta_str = f"+₺{potansiyel_kar:,.2f}" if potansiyel_kar >= 0 else f"-₺{abs(potansiyel_kar):,.2f}"
-    col3.metric("Anlık Potansiyel Kâr", f"₺{potansiyel_kar:,.2f}", pot_delta_str)
-    
-    gercek_delta_str = f"+₺{gerceklesen_kar:,.2f}" if gerceklesen_kar >= 0 else f"-₺{abs(gerceklesen_kar):,.2f}"
-    col4.metric("Cepteki Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}", gercek_delta_str)
+    col1.metric("📈 Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
+    col2.metric("💵 Boştaki Nakit Para", f"₺{toplam_boştaki_nakit:,.2f}")
+    col3.metric("💰 Cepte Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}")
+    col4.metric("🏆 TOPLAM NET VARLIĞIM", f"₺{toplam_toplam_varlik:,.2f}")
 
     st.divider()
 
@@ -436,7 +413,7 @@ with tab1:
 
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim (Sade Görünüm)", "📜 Satılan & Geçmiş Hisseler"])
 
-    # --- ŞIK VE KUTU GÖRÜNÜMLÜ AKTİF HİSSE KARTLARI ---
+    # --- AKTİF HİSSE KARTLARI ---
     with sub_tab1:
         if df_aktif.empty:
             st.info("Şu an aktif portföyünde hisse bulunmuyor.")
@@ -461,9 +438,7 @@ with tab1:
                 kar_str = f"+₺{toplam_kar:,.2f}" if toplam_kar >= 0 else f"-₺{abs(toplam_kar):,.2f}"
                 badge_class = "badge-kar-yesil" if toplam_kar >= 0 else "badge-zarar-kirmizi"
 
-                # KUTU ŞEKLİNDE KART TASARIMI
                 with st.container(border=True):
-                    # Kapalı haldeki renkli ve şık kolonlar
                     c1, c2, c3, c4 = st.columns([2.5, 2, 2.5, 3])
                     
                     with c1:
@@ -479,7 +454,6 @@ with tab1:
                         st.markdown("💰 **Toplam Kâr / Zarar**")
                         st.markdown(f"<span class='{badge_class}'>{kar_str}</span>", unsafe_allow_html=True)
 
-                    # AÇILIR DETAY MENÜSÜ
                     with st.expander("👥 Kişi/Hesap Detaylarını Göster & İşlem Yap", expanded=False):
                         st.caption(f"Maliyet: ₺{toplam_maliyet:,.2f} (Birim: ₺{birim_maliyet:.2f}) | Portföy Değeri: ₺{toplam_guncel_deger:,.2f}")
                         st.divider()
@@ -558,14 +532,7 @@ with tab2:
     st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
     st.caption("Farklı hesaplarda senin adına duran boşta TL, Dolar, Euro veya Altın nakitlerini buradan takip et.")
     
-    df_nakit = verileri_getir("nakitler")
-    
-    toplam_boştaki_nakit_tl = 0.0
-    if not df_nakit.empty:
-        for _, row in df_nakit.iterrows():
-            toplam_boştaki_nakit_tl += safe_float(row['tutar'])
-            
-    st.metric("Cebimdeki / Hesaplardaki Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit_tl:,.2f}")
+    st.metric("Cebimdeki / Hesaplardaki Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit:,.2f}")
     st.divider()
 
     with st.expander("➕ Yeni Boşta Nakit / Para Ekle", expanded=True):
@@ -613,61 +580,9 @@ with tab2:
                         st.rerun()
 
 # =========================================================
-# TAB 3: GELECEK HALKA ARZLAR
+# TAB 3: BORÇ & KREDİ TAKİP
 # =========================================================
 with tab3:
-    st.title("📅 Gelecek Halka Arzlar & Takvim")
-    df_gelecek = verileri_getir("gelecek_arzlar")
-
-    with st.expander("➕ Manuel Gelecek Halka Arz Ekle", expanded=False):
-        with st.form("yeni_gelecek_arz", clear_on_submit=True):
-            cg1, cg2 = st.columns(2)
-            g_kod = cg1.text_input("Hisse Kodu:").upper().strip()
-            g_ad = cg2.text_input("Şirket Adı:")
-            
-            cg3, cg4, cg5 = st.columns(3)
-            g_fiyat = cg3.number_input("Halka Arz Fiyatı (₺):", min_value=0.0, value=15.0, step=0.01, format="%.2f")
-            g_talep = cg4.text_input("Talep Toplama Tarihi:")
-            g_islem = cg5.text_input("İşlem Tarihi:")
-            
-            g_durum = st.selectbox("Arz Durumu:", ["Taslak (SPK Bekliyor)", "Talep Toplanıyor", "İşlem Tarihi Belli Oldu"])
-            
-            g_submit = st.form_submit_button("Takvime Ekle")
-            if g_submit:
-                if g_ad:
-                    gelecek_arz_ekle(g_kod, g_ad, g_fiyat, g_talep, g_islem, g_durum)
-                    st.success("✅ Takvime eklendi!")
-                    st.rerun()
-
-    st.subheader("📋 Yaklaşan & Onaylanan Halka Arzlar")
-    if df_gelecek.empty:
-        st.info("Henüz takvime eklenmiş halka arz bulunmuyor.")
-    else:
-        for idx, row in df_gelecek.iterrows():
-            gkod = str(row['kod'])
-            gad = str(row['ad'])
-            gfiyat = safe_float(row['fiyat'])
-            gtalep = str(row['talep_tarihi'])
-            gislem = str(row['islem_tarihi'])
-
-            with st.container(border=True):
-                gc1, gc2, gc3 = st.columns([2, 2, 1])
-                with gc1:
-                    st.markdown(f"### {gkod}")
-                    st.write(f"**{gad}**")
-                    st.write(f"**Fiyat:** ₺{gfiyat:.2f}" if gfiyat > 0 else "**Fiyat:** Açıklanmadı")
-                with gc2:
-                    st.write(f"📅 **Talep Toplama:** {gtalep if gtalep else 'Açıklanmadı'}")
-                    st.write(f"🔔 **İşlem Tarihi:** {gislem if gislem else 'Açıklanmadı'}")
-                with gc3:
-                    if st.button("🗑️ Sil", key=f"gdel_{idx}"):
-                        gelecek_arz_sil(idx)
-                        st.rerun()
-
-# =========================================================
-# TAB 4: BORÇ & KREDİ TAKİP
-# =========================================================
-with tab4:
     st.title("💳 Borç & Kredi Defteri")
     
     df_borc = verileri_getir("borclar")
@@ -755,20 +670,17 @@ with tab4:
                         borc_sil(idx)
                         st.rerun()
 
-    # GENEL SERVET ÖZETİ
+    # GENEL SERVET & BORÇ DENGESİ
     st.divider()
-    st.subheader("⚖️ Cebindeki Tam Net Servet & Denge")
-    toplam_toplam_varliklar = toplam_guncel_aktif + gerceklesen_kar + toplam_boştaki_nakit_tl
-    net_varlik = toplam_toplam_varliklar - kalan_toplam_borc
+    st.subheader("⚖️ Borçlar Düşüldükten Sonra Net Servet")
+    net_servet = toplam_toplam_varlik - kalan_toplam_borc
     
     st.info(f"""
-    * 📈 **Aktif Borsa Portföy Değeri:** ₺{toplam_guncel_aktif:,.2f}
-    * 💵 **Hesaplardaki Boştaki Nakitler:** ₺{toplam_boştaki_nakit_tl:,.2f}
-    * 💰 **Satıştan Cebine Giren Kâr:** ₺{gerceklesen_kar:,.2f}
+    * 🏆 **Toplam Brüt Varlıklar (Hisse + Nakit + Kâr):** ₺{toplam_toplam_varlik:,.2f}
     * 💳 **Kalan Toplam Borçlar:** ₺{kalan_toplam_borc:,.2f}
     """)
     
-    if net_varlik >= 0:
-        st.success(f"💚 **NET SERVETİN:** **+₺{net_varlik:,.2f}**")
+    if net_servet >= 0:
+        st.success(f"💚 **BORÇLAR DÜŞÜLDÜKTEN SONRA NET SERVETİN:** **+₺{net_servet:,.2f}**")
     else:
-        st.error(f"🔴 **NET SERVET AÇIĞIN:** **-₺{abs(net_varlik):,.2f}**")
+        st.error(f"🔴 **BORÇ AÇIĞIN:** **-₺{abs(net_servet):,.2f}**")
