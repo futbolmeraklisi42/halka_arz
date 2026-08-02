@@ -18,7 +18,7 @@ st.set_page_config(
 def get_gsheet_client():
     try:
         creds = dict(st.secrets["gcp_service_account"])
-        # Private key format düzeltmesi
+        # Private key format düzeltmesi (Invalid Padding Fix)
         if "private_key" in creds:
             creds["private_key"] = creds["private_key"].replace("\\n", "\n")
         return gspread.service_account_from_dict(creds)
@@ -48,7 +48,8 @@ def verileri_getir(worksheet_name):
                 worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
 
         data = worksheet.get_all_records()
-        return pd.DataFrame(data)
+        df = pd.DataFrame(data)
+        return df
     except Exception as e:
         st.error(f"Tablo Okuma Hatası [{worksheet_name}]: {e}")
         return pd.DataFrame()
@@ -66,7 +67,9 @@ def veri_kaydet(worksheet_name, df):
                 worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
 
             worksheet.clear()
-            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+            # gspread v6+ uyumluluğu için range_name eklenmiştir
+            worksheet.update(range_name='A1', values=[df.columns.values.tolist()] + df.values.tolist())
+            st.cache_resource.clear()
     except Exception as e:
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
@@ -428,7 +431,7 @@ with tab2:
         for idx, row in df_gelecek.iterrows():
             gkod = row['kod']
             gad = row['ad']
-            gfiyat = float(row['fiyat'])
+            gfiyat = float(row['fiyat']) if str(row['fiyat']).replace('.','',1).isdigit() else 0.0
             gtalep = row['talep_tarihi']
             gislem = row['islem_tarihi']
             gdurum = row['durum']
@@ -481,8 +484,8 @@ with tab3:
     toplam_odenen_borc = 0.0
     
     if not df_borc.empty:
-        toplam_ana_borc = df_borc['toplam_tutar'].astype(float).sum()
-        toplam_odenen_borc = df_borc['odenen_tutar'].astype(float).sum()
+        toplam_ana_borc = pd.to_numeric(df_borc['toplam_tutar'], errors='coerce').fillna(0).sum()
+        toplam_odenen_borc = pd.to_numeric(df_borc['odenen_tutar'], errors='coerce').fillna(0).sum()
         
     kalan_toplam_borc = toplam_ana_borc - toplam_odenen_borc
     
@@ -528,10 +531,10 @@ with tab3:
             baslik = row['baslik']
             tur = row['tur']
             kisi = row['kisi_kurum']
-            toplam = float(row['toplam_tutar'])
-            taksit_s = int(row['taksit_sayisi'])
-            odenen_taksit = int(row['odenen_taksit'])
-            odenen_tutar = float(row['odenen_tutar'])
+            toplam = float(row['toplam_tutar']) if str(row['toplam_tutar']).replace('.','',1).isdigit() else 0.0
+            taksit_s = int(row['taksit_sayisi']) if str(row['taksit_sayisi']).isdigit() else 1
+            odenen_taksit = int(row['odenen_taksit']) if str(row['odenen_taksit']).isdigit() else 0
+            odenen_tutar = float(row['odenen_tutar']) if str(row['odenen_tutar']).replace('.','',1).isdigit() else 0.0
             aciklama = row['aciklama']
             
             kalan = toplam - odenen_tutar
