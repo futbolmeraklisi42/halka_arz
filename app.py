@@ -258,7 +258,7 @@ def hisse_durumunu_sorgula(symbol):
             "mesaj": "🟡 Hisse henüz işleme açılmamış veya BIST verisi henüz girilmemiş."
         }
 
-# ----------------- ESKİ HALKA ARZ GEÇMİŞİ VERİSİ (HESAP SAYISINA GÖRE ÇARPILMIŞ GERÇEK TOPLAM LOTLAR) -----------------
+# ----------------- ESKİ HALKA ARZ GEÇMİŞİ VERİSİ -----------------
 ESKI_HALKA_ARZ_VERISI = [
     {"kod": "PAHOL", "ad": "Panora GYO", "maliyet": 1.50, "satis_fiyati": 1.68, "lot": 2800 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
     {"kod": "ZERGY", "ad": "Zer GYO", "maliyet": 13.00, "satis_fiyati": 13.22, "lot": 193 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
@@ -363,15 +363,29 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
     df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
     df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
 
-# 1. Aktif Hisse Hesaplamaları
+# 1. Aktif Hisse Hesaplamaları ve Şampiyon Tespiti
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
-sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40 * 3}
+sampiyon_hisse = {"kod": "BASLANGIC", "kar": -999999.0} 
 
-# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar Çarpılmış Hali)
+if not df_aktif.empty:
+    for idx, row in df_aktif.iterrows():
+        toplam_lot = safe_float(row['lot'], 1)
+        maliyet_fiyat = safe_float(row['maliyet'])
+        toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
+        anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
+        
+        guncel_val = (toplam_lot * anlik_fiyat)
+        toplam_guncel_aktif += guncel_val
+        
+        kar_val = guncel_val - (toplam_lot * maliyet_fiyat)
+        if kar_val > sampiyon_hisse["kar"]:
+            sampiyon_hisse = {"kod": row['kod'], "kar": kar_val}
+
+# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar)
 gerceklesen_kar = 0.0
 
-# Eski 16 arzın kârını ekle (Tüm hesaplar dahil)
+# Eski arzların kârını ekle ve şampiyonu doğru bul
 for e in ESKI_HALKA_ARZ_VERISI:
     k_kar = (e["satis_fiyati"] - e["maliyet"]) * e["lot"]
     gerceklesen_kar += k_kar
@@ -398,7 +412,7 @@ if not df_nakit.empty:
     for _, row in df_nakit.iterrows():
         toplam_boştaki_nakit += safe_float(row['tutar'])
 
-# 4. TOPLAM NET VARLIĞIM (ELDEKİ HİSSE + CEPTENAKİT)
+# 4. TOPLAM NET VARLIĞIM
 toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit
 
 # ----------------- HERO BANNER -----------------
@@ -538,7 +552,7 @@ with tab1:
                         st.markdown(f"*{toplam_lot} Lot*")
                     with c3:
                         st.markdown("💵 *Anlık Fiyat / Değişim*")
-                        st.markdown(f"*₺{anlik_fiyat:.2f}* (⁠ {yuzde_str} ⁠)")
+                        st.markdown(f"*₺{anlik_fiyat:.2f}* ({yuzde_str})")
                     with c4:
                         st.markdown("💰 *Toplam Kâr / Zarar*")
                         st.markdown(f"<span class='{badge_class}'>{kar_str}</span>", unsafe_allow_html=True)
@@ -579,11 +593,9 @@ with tab1:
                                         st.rerun()
                             st.write("---")
 
-    # SATILAN HİSSELERİM SEKMESİ (TÜM HESAPLARI KAPSAYAN GERÇEK VERİLER)
     with sub_tab2:
         st.subheader("📜 Tüm Satılan Hisselerin Listesi")
         
-        # 1. Yeni Satılan Hisseler (Google Sheets'ten gelenler)
         if not df_satilan.empty:
             st.markdown("#### 🆕 Yakın Zamanda Satılanlar")
             for idx, row in df_satilan.iterrows():
@@ -619,7 +631,6 @@ with tab1:
 
         st.divider()
 
-        # 2. Geçmiş Halka Arz Arşivi (16 adet eski hisse - Kat Sayılarıyla Çarpılmış!)
         st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi (Tüm Hesapların Toplam Kârı)")
         for idx, e in enumerate(ESKI_HALKA_ARZ_VERISI):
             kod = e["kod"]
@@ -794,7 +805,6 @@ with tab3:
                         borc_sil(idx)
                         st.rerun()
 
-    # GENEL SERVET & BORÇ DENGESİ
     st.divider()
     st.subheader("⚖️ Borçlar Düşüldükten Sonra Net Servet")
     net_servet = toplam_toplam_varlik - kalan_toplam_borc
