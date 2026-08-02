@@ -17,13 +17,32 @@ st.set_page_config(
 @st.cache_resource
 def get_gsheet_client():
     try:
+        # Secrets'tan dictionary kopyası al
         creds = dict(st.secrets["gcp_service_account"])
         
-        # Private key format & Invalid Padding düzeltmesi
         if "private_key" in creds:
-            pk = str(creds["private_key"])
-            pk = pk.replace("\\n", "\n").strip("'\"")
-            creds["private_key"] = pk
+            pk = str(creds["private_key"]).strip()
+            
+            # Başta/sonda kalan fazla tırnakları kaldır
+            pk = pk.strip("'\"")
+            
+            # Escape edilmiş \n karakterlerini gerçek yeni satıra dönüştür
+            pk = pk.replace("\\n", "\n")
+            
+            # PEM gövdesinden geçersiz nokta (.) ve sembolleri temizle
+            lines = pk.split("\n")
+            cleaned_lines = []
+            for line in lines:
+                line_str = line.strip()
+                if "BEGIN PRIVATE KEY" in line_str or "END PRIVATE KEY" in line_str:
+                    cleaned_lines.append(line_str)
+                else:
+                    # Sadece geçerli Base64 karakterlerini tut
+                    clean_body = re.sub(r'[^A-Za-z0-9+/=]', '', line_str)
+                    if clean_body:
+                        cleaned_lines.append(clean_body)
+            
+            creds["private_key"] = "\n".join(cleaned_lines)
 
         return gspread.service_account_from_dict(creds)
     except Exception as e:
@@ -39,7 +58,6 @@ def verileri_getir(worksheet_name):
         sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sh = client.open_by_url(sheet_url)
         
-        # Sayfa yoksa otomatik oluştur
         try:
             worksheet = sh.worksheet(worksheet_name)
         except gspread.exceptions.WorksheetNotFound:
@@ -52,8 +70,7 @@ def verileri_getir(worksheet_name):
                 worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
 
         data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
-        return df
+        return pd.DataFrame(data)
     except Exception as e:
         st.error(f"Tablo Okuma Hatası [{worksheet_name}]: {e}")
         return pd.DataFrame()
