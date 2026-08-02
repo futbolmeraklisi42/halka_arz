@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
+import yfinance as yf
 
 # yfinance yüklenemezse uygulamanın çökmesini engellemek için güvenli import
 try:
@@ -552,6 +553,34 @@ with tab3:
                         borc_sil(b_id)
                         st.toast("Borç kaydı silindi.")
                         st.rerun()
+
+
+    def hisse_durumunu_sorgula(symbol):
+    ticker_kod = f"{symbol.upper().strip()}.IS"
+    try:
+        ticker = yf.Ticker(ticker_kod)
+        # Son 1 günlük veri çekme denemesi
+        hist = ticker.history(period="1d")
+        
+        if not hist.empty:
+            son_fiyat = hist['Close'].iloc[-1]
+            return {
+                "durum": "ISLEM_GORUYOR",
+                "fiyat": round(son_fiyat, 2),
+                "mesaj": "🟢 Hisse Borsa İstanbul'da aktif olarak işlem görüyor."
+            }
+        else:
+            return {
+                "durum": "BEKLEMEDE",
+                "fiyat": None,
+                "mesaj": "🟡 Hisse kodu tanımlı ancak henüz borsada ilk işlem gerçekleşmedi (Takvimde/Onayda)."
+            }
+    except Exception as e:
+        return {
+            "durum": "BULUNAMADI",
+            "fiyat": None,
+            "mesaj": "🔴 Hisse kodu bulunamadı veya henüz BIST sistemine tanımlanmadı."
+        }
 
     # GENERAL FİNANSAL ÖZET BARI
     st.divider()
