@@ -276,7 +276,7 @@ ESKI_HALKA_ARZ_VERISI = [
     {"kod": "LXGYO", "ad": "Lux GYO", "maliyet": 12.05, "satis_fiyati": 20.94, "lot": 55 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
     {"kod": "MCARD", "ad": "MasterCard TR", "maliyet": 80.00, "satis_fiyati": 123.70, "lot": 9 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
     {"kod": "AAGYO", "ad": "Ağaoğlu GYO", "maliyet": 21.10, "satis_fiyati": 23.58, "lot": 144 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
-    {"kod": "EKDMR", "ad": "EK DEMİR", "maliyet": 45.00, "satis_fiyati": 25.00, "lot": 27 * 5, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5},
+    {"kod": "EKDMR", "ad": "EK DEMİR", "maliyet": 45.00, "satis_fiyati": 60.00, "lot": 27 * 5, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5},
     {"kod": "ORZAX", "ad": "OZRAX GİYİM", "maliyet": 69.00, "satis_fiyati": 75.90, "lot": 39 * 5, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5},
     {"kod": "BETAE", "ad": "BETA İLETİŞİM", "maliyet": 40.00, "satis_fiyati": 64.35, "lot": 29 * 5, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5},
     {"kod": "SOHOE", "ad": "SOHO", "maliyet": 15.00, "satis_fiyati": 16.50, "lot": 15 * 5, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5},
