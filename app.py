@@ -3,11 +3,13 @@ import pandas as pd
 import requests
 import json
 import re
+import random
 import gspread
+import plotly.express as px
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
-    page_title="Finans & Varlık Yönetim Portalı",
+    page_title="Finansal Portföy Portalı 💰",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -260,13 +262,27 @@ def hisse_durumunu_sorgula(symbol):
 # ----------------- CSS / STİL -----------------
 st.markdown("""
 <style>
-    .main { background-color: #0f172a; }
+    .main { background-color: #0b0f19; }
+    
+    /* Hero Banner */
+    .hero-banner {
+        background: linear-gradient(135deg, #1e1b4b 0%, #311b92 50%, #4a148c 100%);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 20px;
+        padding: 22px;
+        color: white;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.3);
+    }
+
     .stMetric {
         background: rgba(30, 41, 59, 0.7);
-        padding: 15px;
-        border-radius: 15px;
+        padding: 18px;
+        border-radius: 18px;
         border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
+    
     .badge-sahip { background-color: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-satildi { background-color: #64748b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
     
@@ -274,19 +290,19 @@ st.markdown("""
         background-color: rgba(16, 185, 129, 0.2);
         color: #10b981;
         border: 1px solid #10b981;
-        padding: 4px 10px;
-        border-radius: 8px;
+        padding: 5px 12px;
+        border-radius: 10px;
         font-weight: bold;
-        font-size: 14px;
+        font-size: 15px;
     }
     .badge-zarar-kirmizi {
         background-color: rgba(239, 68, 68, 0.2);
         color: #ef4444;
         border: 1px solid #ef4444;
-        padding: 4px 10px;
-        border-radius: 8px;
+        padding: 5px 12px;
+        border-radius: 10px;
         font-weight: bold;
-        font-size: 14px;
+        font-size: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -298,65 +314,122 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# ----------------- TAB YAPISI (Takvim Kaldırıldı) -----------------
-tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "💵 Boştaki Nakit & Varlıklar", "💳 Borç & Kredi Takip"])
+# ----------------- MOTİVE EDİCİ SÖZLER -----------------
+SOZLER = [
+    "“Borsa, sabırsızların parasını sabırlılara aktaran bir mekanizmadır.” – Warren Buffett",
+    "“Küçük biriktirilen damlalar, yarının finansal özgürlük okyanusunu oluşturur.” 🌊",
+    "“En iyi yatırım, gelecekteki özgürlüğüne yaptığın yatırımdır.” 🚀",
+    "“Finansal disiplin bugün vazgeçtiklerin değil, yarın sahip olacaklarındır.” 💡",
+    "“Halka arzlardan elde edilen her kâr, servet kalesinin yeni bir tuğlasıdır.” 🏰",
+    "“Risk, ne yaptığını bilmemekten gelir.” – Charlie Munger"
+]
+secilen_soz = random.choice(SOZLER)
+
+# ----------------- HESAPLAMALAR -----------------
+df_portfoy = verileri_getir("portfoy")
+df_nakit = verileri_getir("nakitler")
+
+df_aktif = pd.DataFrame()
+df_satilan = pd.DataFrame()
+
+if not df_portfoy.empty and "durum" in df_portfoy.columns:
+    df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
+    df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
+
+# 1. Aktif Hisse Hesaplamaları
+toplam_yatirilan_aktif = 0.0
+toplam_guncel_aktif = 0.0
+sampiyon_hisse = {"kod": "-", "kar": -999999}
+
+if not df_aktif.empty:
+    for idx, row in df_aktif.iterrows():
+        toplam_lot = safe_float(row['lot'], 1)
+        maliyet_fiyat = safe_float(row['maliyet'])
+        toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
+        anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
+        
+        guncel_val = (toplam_lot * anlik_fiyat)
+        toplam_guncel_aktif += guncel_val
+        
+        kar_val = guncel_val - (toplam_lot * maliyet_fiyat)
+        if kar_val > sampiyon_hisse["kar"]:
+            sampiyon_hisse = {"kod": row['kod'], "kar": kar_val}
+
+# 2. Satılan Hisse Kârı
+gerceklesen_kar = 0.0
+if not df_satilan.empty:
+    for idx, row in df_satilan.iterrows():
+        toplam_lot = safe_float(row['lot'], 1)
+        maliyet_fiyat = safe_float(row['maliyet'])
+        satis_fiyati = safe_float(row['satis_fiyati'])
+        
+        maliyet_tutar = toplam_lot * maliyet_fiyat
+        satis_tutar = toplam_lot * satis_fiyati
+        k_kar = satis_tutar - maliyet_tutar
+        gerceklesen_kar += k_kar
+        
+        if k_kar > sampiyon_hisse["kar"]:
+            sampiyon_hisse = {"kod": row['kod'], "kar": k_kar}
+
+# 3. Boştaki Nakit Hesaplaması
+toplam_boştaki_nakit = 0.0
+if not df_nakit.empty:
+    for _, row in df_nakit.iterrows():
+        toplam_boştaki_nakit += safe_float(row['tutar'])
+
+# 4. Toplam Tüm Para
+toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit + gerceklesen_kar
+
+# ----------------- HERO BANNER -----------------
+st.markdown(f"""
+<div class="hero-banner">
+    <h2 style="margin:0; font-size:24px;">Hoş Geldin! 👋</h2>
+    <p style="margin: 8px 0 0 0; opacity: 0.9; font-style: italic; font-size: 15px;">{secilen_soz}</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ----------------- TAB YAPISI -----------------
+tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm & Analiz", "💵 Boştaki Nakit & Varlıklar", "💳 Borç & Kredi Takip"])
 
 # =========================================================
-# TAB 1: HALKA ARZ PORTFÖYÜ
+# TAB 1: PORTFÖYÜM & ANALİZ
 # =========================================================
 with tab1:
-    st.title("🚀 Halka Arz Portföyüm")
-    
-    df_portfoy = verileri_getir("portfoy")
-    df_nakit = verileri_getir("nakitler")
-    
-    df_aktif = pd.DataFrame()
-    df_satilan = pd.DataFrame()
-    
-    if not df_portfoy.empty and "durum" in df_portfoy.columns:
-        df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
-        df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
-
-    # 1. Aktif Hisse Hesaplamaları
-    toplam_yatirilan_aktif = 0.0
-    toplam_guncel_aktif = 0.0
-    if not df_aktif.empty:
-        for idx, row in df_aktif.iterrows():
-            toplam_lot = safe_float(row['lot'], 1)
-            maliyet_fiyat = safe_float(row['maliyet'])
-            toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
-            anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
-            toplam_guncel_aktif += (toplam_lot * anlik_fiyat)
-
-    potansiyel_kar = toplam_guncel_aktif - toplam_yatirilan_aktif
-
-    # 2. Satılan Hisse Kârı
-    gerceklesen_kar = 0.0
-    if not df_satilan.empty:
-        for idx, row in df_satilan.iterrows():
-            toplam_lot = safe_float(row['lot'], 1)
-            maliyet_fiyat = safe_float(row['maliyet'])
-            satis_fiyati = safe_float(row['satis_fiyati'])
-            
-            maliyet_tutar = toplam_lot * maliyet_fiyat
-            satis_tutar = toplam_lot * satis_fiyati
-            gerceklesen_kar += (satis_tutar - maliyet_tutar)
-
-    # 3. Boştaki Nakit Hesaplaması
-    toplam_boştaki_nakit = 0.0
-    if not df_nakit.empty:
-        for _, row in df_nakit.iterrows():
-            toplam_boştaki_nakit += safe_float(row['tutar'])
-
-    # 4. Toplam Tüm Para (Varlık)
-    toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit + gerceklesen_kar
-
     # GENEL ÖZET METRİKLERİ
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("📈 Aktif Portföy Değeri", f"₺{toplam_guncel_aktif:,.2f}")
     col2.metric("💵 Boştaki Nakit Para", f"₺{toplam_boştaki_nakit:,.2f}")
     col3.metric("💰 Cepte Net Kâr (Satılan)", f"₺{gerceklesen_kar:,.2f}")
     col4.metric("🏆 TOPLAM NET VARLIĞIM", f"₺{toplam_toplam_varlik:,.2f}")
+
+    st.divider()
+
+    # VARTLIK DAĞILIMI & ŞAMPİYON HİSSE
+    if toplam_toplam_varlik > 0:
+        c_left, c_right = st.columns([1, 1.2])
+        
+        with c_left:
+            st.markdown("### 📊 Varlık Dağılımı")
+            chart_data = pd.DataFrame({
+                "Kategori": ["Aktif Hisseler", "Boştaki Nakit", "Cepte Kâr"],
+                "Tutar": [toplam_guncel_aktif, toplam_boştaki_nakit, max(gerceklesen_kar, 0)]
+            })
+            fig = px.pie(chart_data, values="Tutar", names="Kategori", hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
+            fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with c_right:
+            st.markdown("### 🏆 Portföyün Yıldızı")
+            if sampiyon_hisse["kod"] != "-":
+                st.info(f"""
+                🌟 **En Çok Kâr Ettiren Hissen:** **{sampiyon_hisse['kod']}**
+                
+                💰 Katkısı: **+₺{sampiyon_hisse['kar']:,.2f}**
+                
+                *Harika bir seçim! Doğru zamanlama ile değer yaratıldı.* 🔥
+                """)
+            else:
+                st.write("Henüz yeterli kâr verisi oluşmadı.")
 
     st.divider()
 
