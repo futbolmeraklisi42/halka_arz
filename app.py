@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 import re
-from streamlit_gsheets import GSheetsConnection
+import gspread
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -14,17 +14,40 @@ st.set_page_config(
 )
 
 # ----------------- GOOGLE SHEETS BAGLANTISI -----------------
-conn = st.connection("gsheets", type=GSheetsConnection)
+@st.cache_resource
+def get_gsheet_client():
+    try:
+        # Secrets'tan service account bilgilerini al
+        return gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+    except Exception as e:
+        st.error("Google Sheets bağlantı hatası! Lütfen Secrets alanını kontrol edin.")
+        return None
 
 def verileri_getir(worksheet_name):
     try:
-        df = conn.read(worksheet=worksheet_name, ttl=5)
-        return df.dropna(how="all")
-    except Exception:
+        client = get_gsheet_client()
+        if not client:
+            return pd.DataFrame()
+        
+        sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+        sh = client.open_by_url(sheet_url)
+        worksheet = sh.worksheet(worksheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
         return pd.DataFrame()
 
 def veri_kaydet(worksheet_name, df):
-    conn.update(worksheet=worksheet_name, data=df)
+    try:
+        client = get_gsheet_client()
+        if client:
+            sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+            sh = client.open_by_url(sheet_url)
+            worksheet = sh.worksheet(worksheet_name)
+            worksheet.clear()
+            worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+    except Exception as e:
+        st.error(f"Kaydetme hatası: {e}")
 
 # --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
