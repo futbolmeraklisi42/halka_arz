@@ -7,7 +7,7 @@ import gspread
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
-    page_title="Finans & Halka Arz Portalı",
+    page_title="Finans & Varlık Yönetim Portalı",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -50,9 +50,7 @@ def safe_float(val, default=0.0):
         return float(val)
     
     val_str = str(val).strip()
-    
     try:
-        # Eğer Sheets'ten 45,68 veya 45.68 şeklinde string geldiyse
         val_str = val_str.replace(',', '.')
         return float(val_str)
     except:
@@ -74,11 +72,13 @@ def verileri_getir(worksheet_name):
         except gspread.exceptions.WorksheetNotFound:
             worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
             if worksheet_name == "portfoy":
-                worksheet.append_row(["kod", "ad", "hesap_sayisi", "lot", "maliyet", "satis_fiyati", "durum"])
+                worksheet.append_row(["kod", "ad", "sahip", "lot", "maliyet", "satis_fiyati", "durum"])
             elif worksheet_name == "gelecek_arzlar":
                 worksheet.append_row(["kod", "ad", "fiyat", "talep_tarihi", "islem_tarihi", "durum"])
             elif worksheet_name == "borclar":
                 worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
+            elif worksheet_name == "nakitler":
+                worksheet.append_row(["tanim", "kisi_hesap", "tutar", "birim", "aciklama"])
 
         data = worksheet.get_all_records()
         df = pd.DataFrame(data)
@@ -88,7 +88,6 @@ def verileri_getir(worksheet_name):
             if worksheet_name == "portfoy":
                 df["maliyet"] = df["maliyet"].apply(safe_float)
                 df["satis_fiyati"] = df["satis_fiyati"].apply(safe_float)
-                df["hesap_sayisi"] = df["hesap_sayisi"].apply(lambda x: int(safe_float(x, 1)))
                 df["lot"] = df["lot"].apply(lambda x: int(safe_float(x, 1)))
             elif worksheet_name == "gelecek_arzlar":
                 df["fiyat"] = df["fiyat"].apply(safe_float)
@@ -97,6 +96,8 @@ def verileri_getir(worksheet_name):
                 df["odenen_tutar"] = df["odenen_tutar"].apply(safe_float)
                 df["taksit_sayisi"] = df["taksit_sayisi"].apply(lambda x: int(safe_float(x, 1)))
                 df["odenen_taksit"] = df["odenen_taksit"].apply(lambda x: int(safe_float(x, 0)))
+            elif worksheet_name == "nakitler":
+                df["tutar"] = df["tutar"].apply(safe_float)
 
         return df
     except Exception as e:
@@ -117,7 +118,6 @@ def veri_kaydet(worksheet_name, df):
 
             worksheet.clear()
             
-            # Google Sheets'e yazarken sayıları string olarak '45.68' formatında gönderiyoruz ki nokta silinmesin!
             export_df = df.copy()
             for col in export_df.columns:
                 export_df[col] = export_df[col].astype(str)
@@ -128,13 +128,17 @@ def veri_kaydet(worksheet_name, df):
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
 # --- PORTFÖY İŞLEMLERİ ---
-def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
+def veri_ekle_halka_arz_kisi(kod, ad, sahip, lot, maliyet):
     df = verileri_getir("portfoy")
     
+    # Eskiden kalan sütun uyumluluğu kontrolü
+    if "sahip" not in df.columns:
+        df["sahip"] = "Kendim"
+        
     yeni_veri = pd.DataFrame([{
         "kod": str(kod).upper().strip(),
         "ad": str(ad),
-        "hesap_sayisi": int(hesap_sayisi),
+        "sahip": str(sahip),
         "lot": int(lot),
         "maliyet": safe_float(maliyet),
         "satis_fiyati": 0.0,
@@ -204,6 +208,24 @@ def borc_sil(index_no):
     df = verileri_getir("borclar")
     df = df.drop(index_no).reset_index(drop=True)
     veri_kaydet("borclar", df)
+
+# --- NAKİT / VARLIK İŞLEMLERİ ---
+def nakit_ekle(tanim, kisi_hesap, tutar, birim, aciklama):
+    df = verileri_getir("nakitler")
+    yeni_veri = pd.DataFrame([{
+        "tanim": tanim,
+        "kisi_hesap": kisi_hesap,
+        "tutar": safe_float(tutar),
+        "birim": birim,
+        "aciklama": aciklama
+    }])
+    df = pd.concat([df, yeni_veri], ignore_index=True)
+    veri_kaydet("nakitler", df)
+
+def nakit_sil(index_no):
+    df = verileri_getir("nakitler")
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("nakitler", df)
 
 # ----------------- TRADINGVIEW CANLI BİST VERİSİ -----------------
 @st.cache_data(ttl=300)
@@ -277,9 +299,7 @@ st.markdown("""
     .badge-satildi { background-color: #64748b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
     .badge-kredi { background-color: #0284c7; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
     .badge-kisisel { background-color: #d97706; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
-    .badge-taslak { background-color: #6b7280; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; }
-    .badge-talep { background-color: #f59e0b; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-    .badge-islem { background-color: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .badge-sahip { background-color: #8b5cf6; color: white; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -291,13 +311,13 @@ with st.sidebar:
         st.rerun()
 
 # ----------------- TAB YAPISI -----------------
-tab1, tab2, tab3 = st.tabs(["🚀 Portföyüm", "📅 Halka Arz Takvimi", "💳 Borç & Kredi Takip"])
+tab1, tab2, tab3, tab4 = st.tabs(["🚀 Portföyüm", "💵 Boştaki Nakit & Varlıklar", "📅 Halka Arz Takvimi", "💳 Borç & Kredi Takip"])
 
 # =========================================================
 # TAB 1: HALKA ARZ PORTFÖYÜ
 # =========================================================
 with tab1:
-    st.title("🚀 Halka Arz Portföyüm")
+    st.title("🚀 Kişi Bazlı Halka Arz Portföyüm")
     
     df_portfoy = verileri_getir("portfoy")
     
@@ -312,7 +332,7 @@ with tab1:
     toplam_guncel_aktif = 0.0
     if not df_aktif.empty:
         for idx, row in df_aktif.iterrows():
-            toplam_lot = safe_float(row['hesap_sayisi'], 1) * safe_float(row['lot'], 1)
+            toplam_lot = safe_float(row['lot'], 1)
             maliyet_fiyat = safe_float(row['maliyet'])
             toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
             anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
@@ -323,7 +343,7 @@ with tab1:
     gerceklesen_kar = 0.0
     if not df_satilan.empty:
         for idx, row in df_satilan.iterrows():
-            toplam_lot = safe_float(row['hesap_sayisi'], 1) * safe_float(row['lot'], 1)
+            toplam_lot = safe_float(row['lot'], 1)
             maliyet_fiyat = safe_float(row['maliyet'])
             satis_fiyati = safe_float(row['satis_fiyati'])
             
@@ -343,7 +363,7 @@ with tab1:
 
     st.divider()
 
-    with st.expander("➕ Halka Arz Ekle (TradingView Canlı Sorgulama)", expanded=False):
+    with st.expander("➕ Kişi Bazlı Halka Arz Ekle", expanded=False):
         sorgu_kod = st.text_input("Hisse Kodu (Örn: KARCL veya MASFN):", key="sorgu_input").upper().strip()
         
         otomatik_fiyat = 10.0
@@ -358,22 +378,43 @@ with tab1:
             else:
                 st.info(bilgi['mesaj'])
 
-        with st.form("yeni_arz_formu", clear_on_submit=True):
+        with st.form("yeni_arz_kisi_formu", clear_on_submit=True):
             col_f1, col_f2 = st.columns(2)
             f_kod = col_f1.text_input("Hisse Kodu:", value=sorgu_kod).upper().strip()
             f_ad = col_f2.text_input("Şirket Adı:", value=otomatik_ad)
             
-            col_a, col_b, col_c = st.columns(3)
-            f_hesap = col_a.number_input("Kaç Hesap Girildi?", min_value=1, value=1, step=1)
-            f_lot = col_b.number_input("Hesap Başı Düşen Lot:", min_value=1, value=10, step=1)
-            f_maliyet = col_c.number_input("Halka Arz Fiyatı (Hisse Başı ₺):", min_value=0.01, value=float(otomatik_fiyat), step=0.01, format="%.2f")
+            st.write("👥 **Kişi ve Lot Dağılımını Girin:**")
+            col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
+            lot_kendim = col_k1.number_input("Kendim (Lot):", min_value=0, value=10, step=1)
+            lot_abla = col_k2.number_input("Ablam (Lot):", min_value=0, value=0, step=1)
+            lot_anne = col_k3.number_input("Annem (Lot):", min_value=0, value=0, step=1)
+            lot_baba = col_k4.number_input("Babam (Lot):", min_value=0, value=0, step=1)
+            lot_arkadas = col_k5.number_input("Arkadaşım (Lot):", min_value=0, value=0, step=1)
+            
+            f_maliyet = st.number_input("Halka Arz Fiyatı (Hisse Başı ₺):", min_value=0.01, value=float(otomatik_fiyat), step=0.01, format="%.2f")
             
             submit = st.form_submit_button("Portföye Kaydet")
             if submit:
                 if f_kod and f_ad:
-                    veri_ekle_halka_arz(f_kod, f_ad, f_hesap, f_lot, f_maliyet)
-                    st.success(f"✅ {f_kod} başarıyla Google Sheets'e eklendi!")
-                    st.rerun()
+                    eklenen_kisi_sayisi = 0
+                    kisi_lot_dict = {
+                        "Kendim": lot_kendim,
+                        "Ablam": lot_abla,
+                        "Annem": lot_anne,
+                        "Babam": lot_baba,
+                        "Arkadaşım": lot_arkadas
+                    }
+                    
+                    for kisi, lot_miktari in kisi_lot_dict.items():
+                        if lot_miktari > 0:
+                            veri_ekle_halka_arz_kisi(f_kod, f_ad, kisi, lot_miktari, f_maliyet)
+                            eklenen_kisi_sayisi += 1
+                    
+                    if eklenen_kisi_sayisi > 0:
+                        st.success(f"✅ {f_kod} seçilen kişiler için portföye kaydedildi!")
+                        st.rerun()
+                    else:
+                        st.error("Lütfen en az bir kişi için lot sayısı girin!")
 
     sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan & Geçmiş Hisseler"])
 
@@ -381,37 +422,41 @@ with tab1:
         if df_aktif.empty:
             st.info("Şu an aktif portföyünde hisse bulunmuyor.")
         else:
+            # Filtreleme seçeneği
+            kisi_filtre = st.selectbox("👤 Kişiye Göre Filtrele:", ["Tümü", "Kendim", "Ablam", "Annem", "Babam", "Arkadaşım"])
+            
             for idx, row in df_aktif.iterrows():
                 kod = str(row['kod'])
                 ad = str(row['ad'])
-                hesap_sayisi = int(safe_float(row['hesap_sayisi'], 1))
+                sahip = str(row.get('sahip', 'Kendim'))
                 lot = int(safe_float(row['lot'], 1))
                 maliyet = safe_float(row['maliyet'])
                 
-                toplam_lot = hesap_sayisi * lot
-                toplam_maliyet = toplam_lot * maliyet
+                if kisi_filtre != "Tümü" and sahip != kisi_filtre:
+                    continue
+
+                toplam_maliyet = lot * maliyet
                 anlik_fiyat = get_bist_price(kod, maliyet)
-                guncel_deger = toplam_lot * anlik_fiyat
+                guncel_deger = lot * anlik_fiyat
                 kar = guncel_deger - toplam_maliyet
                 
-                # YÜZDE HESABI
                 yuzde_degisim = ((anlik_fiyat - maliyet) / maliyet) * 100 if maliyet > 0 else 0
                 yuzde_str = f"+%{yuzde_degisim:.2f}" if yuzde_degisim >= 0 else f"-%{abs(yuzde_degisim):.2f}"
                 
                 if kar >= 0:
                     kar_str = f"+₺{kar:,.2f}"
-                    kar_renk = "#10b981"  # Yeşil
+                    kar_renk = "#10b981"
                 else:
                     kar_str = f"-₺{abs(kar):,.2f}"
-                    kar_renk = "#ef4444"  # Kırmızı
+                    kar_renk = "#ef4444"
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
                     
                     with c1:
-                        st.markdown(f"### {kod} <span class='badge-tavan'>🚀 CANLI</span>", unsafe_allow_html=True)
+                        st.markdown(f"### {kod} <span class='badge-sahip'>👤 {sahip}</span>", unsafe_allow_html=True)
                         st.write(f"**{ad}**")
-                        st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
+                        st.caption(f"📦 Miktar: **{lot} Lot**")
                     
                     with c2:
                         st.write(f"**Anlık Fiyat:** ₺{anlik_fiyat:.2f} ({yuzde_str})")
@@ -419,18 +464,18 @@ with tab1:
                         st.markdown(f"**Kâr / Zarar:** <span style='color:{kar_renk}; font-weight:bold;'>{kar_str}</span>", unsafe_allow_html=True)
                         
                     with c3:
-                        with st.popover("💵 Satış Yap"):
-                            st.write(f"**{kod} Satış Kaydı**")
-                            satis_f = st.number_input("Hisseleri Kaçtan Sattın? (₺):", min_value=0.01, value=float(anlik_fiyat), step=0.01, format="%.2f", key=f"s_input_{idx}")
+                        with st.popover("💵 Sadece Bu Hesabı Sat"):
+                            st.write(f"**{sahip} - {kod} Satışı**")
+                            satis_f = st.number_input("Hisse Başı Satış Fiyatı (₺):", min_value=0.01, value=float(anlik_fiyat), step=0.01, format="%.2f", key=f"s_input_{idx}")
                             if st.button("Satışı Onayla", key=f"btn_sat_{idx}"):
                                 hisse_satis_yap(idx, satis_f)
-                                st.toast(f"{kod} satılanlara aktarıldı!")
+                                st.toast(f"{sahip} hesabına ait {kod} satılanlara aktarıldı!")
                                 st.rerun()
                         
                         st.write("")
                         if st.button("🗑️ Sil", key=f"del_h_{idx}"):
                             hisse_sil(idx)
-                            st.toast(f"{kod} silindi.")
+                            st.toast(f"{kod} kaydı silindi.")
                             st.rerun()
 
     with sub_tab2:
@@ -440,14 +485,13 @@ with tab1:
             for idx, row in df_satilan.iterrows():
                 kod = str(row['kod'])
                 ad = str(row['ad'])
-                hesap_sayisi = int(safe_float(row['hesap_sayisi'], 1))
+                sahip = str(row.get('sahip', 'Kendim'))
                 lot = int(safe_float(row['lot'], 1))
                 maliyet = safe_float(row['maliyet'])
                 satis_fiyati = safe_float(row['satis_fiyati'])
                 
-                toplam_lot = hesap_sayisi * lot
-                toplam_maliyet = toplam_lot * maliyet
-                toplam_satis_tutari = toplam_lot * satis_fiyati
+                toplam_maliyet = lot * maliyet
+                toplam_satis_tutari = lot * satis_fiyati
                 net_kar = toplam_satis_tutari - toplam_maliyet
                 kar_orani = ((satis_fiyati - maliyet) / maliyet) * 100 if maliyet > 0 else 0
 
@@ -455,18 +499,18 @@ with tab1:
                 
                 if net_kar >= 0:
                     net_kar_str = f"+₺{net_kar:,.2f}"
-                    net_kar_renk = "#10b981" # Yeşil
+                    net_kar_renk = "#10b981"
                 else:
                     net_kar_str = f"-₺{abs(net_kar):,.2f}"
-                    net_kar_renk = "#ef4444" # Kırmızı
+                    net_kar_renk = "#ef4444"
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([2, 2, 1])
                     
                     with c1:
-                        st.markdown(f"### {kod} <span class='badge-satildi'>✅ SATILDI</span>", unsafe_allow_html=True)
+                        st.markdown(f"### {kod} <span class='badge-satildi'>✅ SATILDI ({sahip})</span>", unsafe_allow_html=True)
                         st.write(f"**{ad}**")
-                        st.caption(f"👥 **{hesap_sayisi} Hesap** × {lot} Lot = **{toplam_lot} Lot**")
+                        st.caption(f"📦 **{lot} Lot**")
                     
                     with c2:
                         st.write(f"**Maliyet:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} ({kar_orani_str})")
@@ -481,9 +525,71 @@ with tab1:
                             st.rerun()
 
 # =========================================================
-# TAB 2: GELECEK HALKA ARZLAR VE TAKVİM
+# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR (YENİ!)
 # =========================================================
 with tab2:
+    st.title("💵 Borsa Hesaplarında & Cepte Dursan Nakitler")
+    st.caption("Farklı hesaplarda senin adına duran boşta TL, Dolar, Euro veya Altın nakitlerini buradan takip et.")
+    
+    df_nakit = verileri_getir("nakitler")
+    
+    toplam_boştaki_nakit_tl = 0.0
+    if not df_nakit.empty:
+        for _, row in df_nakit.iterrows():
+            toplam_boştaki_nakit_tl += safe_float(row['tutar'])
+            
+    st.metric("Cebimdeki / Hesaplardaki Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit_tl:,.2f}")
+    st.divider()
+
+    with st.expander("➕ Yeni Boşta Nakit / Para Ekle", expanded=True):
+        with st.form("yeni_nakit_formu", clear_on_submit=True):
+            cn1, cn2 = st.columns(2)
+            n_tanim = cn1.text_input("Nakit Tanımı (Örn: Borsa Hesabı Boşta Para, Cüzdan, Abla Hesabı Para):")
+            n_kisi = cn2.selectbox("Paranın Durduğu Hesap/Kişi:", ["Kendi Borsa Hesabım", "Ablamın Hesabı", "Annemin Hesabı", "Babamın Hesabı", "Cüzdan/Nakit"])
+            
+            cn3, cn4 = st.columns(2)
+            n_tutar = cn3.number_input("Tutar (₺):", min_value=1.0, value=1000.0, step=100.0)
+            n_birim = cn4.selectbox("Para Birimi:", ["TL", "USD", "EUR", "GOLD"])
+            
+            n_aciklama = st.text_area("Açıklama / Not (Opsiyonel):")
+            
+            n_submit = st.form_submit_button("Nakiti Kaydet")
+            if n_submit:
+                if n_tanim:
+                    nakit_ekle(n_tanim, n_kisi, n_tutar, n_birim, n_aciklama)
+                    st.success("✅ Nakit varlık başarıyla eklendi!")
+                    st.rerun()
+
+    st.subheader("📋 Kayıtlı Boşta Nakit Listesi")
+    if df_nakit.empty:
+        st.info("Henüz boşta nakit kaydı girmediniz.")
+    else:
+        for idx, row in df_nakit.iterrows():
+            tanim = str(row['tanim'])
+            kisi_hesap = str(row['kisi_hesap'])
+            tutar = safe_float(row['tutar'])
+            birim = str(row['birim'])
+            aciklama = str(row['aciklama'])
+
+            with st.container(border=True):
+                nc1, nc2, nc3 = st.columns([2, 2, 1])
+                with nc1:
+                    st.markdown(f"### 💵 {tanim}")
+                    st.write(f"**Bulunduğu Yer:** {kisi_hesap}")
+                    if aciklama and aciklama.lower() != "nan":
+                        st.caption(f"📝 Not: {aciklama}")
+                with nc2:
+                    st.markdown(f"### <span style='color:#10b981;'>₺{tutar:,.2f} {birim}</span>", unsafe_allow_html=True)
+                with nc3:
+                    if st.button("🗑️ Sil", key=f"del_nakit_{idx}"):
+                        nakit_sil(idx)
+                        st.toast("Nakit kaydı silindi.")
+                        st.rerun()
+
+# =========================================================
+# TAB 3: GELECEK HALKA ARZLAR VE TAKVİM
+# =========================================================
+with tab3:
     st.title("📅 Gelecek Halka Arzlar & Takvim")
     df_gelecek = verileri_getir("gelecek_arzlar")
 
@@ -520,17 +626,11 @@ with tab2:
             gislem = str(row['islem_tarihi'])
             gdurum = str(row['durum'])
 
-            badge_style = "badge-taslak"
-            if "Talep" in str(gdurum):
-                badge_style = "badge-talep"
-            elif "İşlem" in str(gdurum):
-                badge_style = "badge-islem"
-
             with st.container(border=True):
                 gc1, gc2, gc3 = st.columns([2, 2, 1])
                 
                 with gc1:
-                    st.markdown(f"### {gkod} <span class='{badge_style}'>{gdurum}</span>", unsafe_allow_html=True)
+                    st.markdown(f"### {gkod}")
                     st.write(f"**{gad}**")
                     st.write(f"**Halka Arz Fiyatı:** ₺{gfiyat:.2f}" if gfiyat > 0 else "**Halka Arz Fiyatı:** Açıklanmadı")
 
@@ -539,27 +639,15 @@ with tab2:
                     st.write(f"🔔 **Borsa İşlem Tarihi:** {gislem if gislem else 'Açıklanmadı'}")
 
                 with gc3:
-                    with st.popover("➕ Portföyüme Aktar"):
-                        st.write("Düşen lot miktarını girip portföyüne ekle:")
-                        p_hesap = st.number_input("Kaç Hesap?", min_value=1, value=1, key=f"gh_{idx}")
-                        p_lot = st.number_input("Lot Sayısı?", min_value=1, value=10, key=f"gl_{idx}")
-                        p_fiyat = st.number_input("Arz Fiyatı (₺):", min_value=0.01, value=float(gfiyat) if gfiyat > 0 else 10.0, step=0.01, format="%.2f", key=f"gf_{idx}")
-                        if st.button("Aktarmayı Onayla", key=f"g_btn_{idx}"):
-                            veri_ekle_halka_arz(gkod, gad, p_hesap, p_lot, p_fiyat)
-                            gelecek_arz_sil(idx)
-                            st.toast("Hisse portföyüne başarıyla aktarıldı!")
-                            st.rerun()
-
-                    st.write("")
                     if st.button("🗑️ Sil", key=f"gdel_{idx}"):
                         gelecek_arz_sil(idx)
                         st.toast("Takvimden silindi.")
                         st.rerun()
 
 # =========================================================
-# TAB 3: BORÇ & KREDİ TAKİP
+# TAB 4: BORÇ & KREDİ TAKİP
 # =========================================================
-with tab3:
+with tab4:
     st.title("💳 Borç & Kredi Defteri")
     
     df_borc = verileri_getir("borclar")
@@ -584,9 +672,8 @@ with tab3:
     with st.expander("➕ Yeni Borç / Kredi Ekle", expanded=False):
         with st.form("yeni_borc_formu", clear_on_submit=True):
             b_tur = st.radio("Tür Seçin:", ["Bankadan Kredi", "Kişisel Borç (Arkadaş, Kız Arkadaşı vs.)"], horizontal=True)
-            
-            b_baslik = st.text_input("Başlık (Örn: İhtiyaç Kredisi veya Ahmet'ten Borç):")
-            b_kisi = st.text_input("Banka / Kişi Adı (Örn: Garanti Bankası, Ayşe):")
+            b_baslik = st.text_input("Başlık (Örn: İhtiyaç Kredisi):")
+            b_kisi = st.text_input("Banka / Kişi Adı (Örn: Garanti Bankası):")
             
             col_b1, col_b2 = st.columns(2)
             b_tutar = col_b1.number_input("Toplam Borç Tutarı (₺):", min_value=1.0, value=25000.0, step=500.0)
@@ -595,7 +682,6 @@ with tab3:
                 b_taksit = col_b2.number_input("Taksit Sayısı (Ay):", min_value=1, value=2, step=1)
             else:
                 b_taksit = 1
-                col_b2.info("Kişisel borçlar tek parça kabul edilir.")
                 
             b_aciklama = st.text_area("Açıklama / Notlar (Opsiyonel):")
             
@@ -646,38 +732,37 @@ with tab3:
                 with c3:
                     if tur == 'Kredi':
                         st.write(f"**Taksit:** {odenen_taksit}/{taksit_s} Ay")
-                        st.caption(f"Aylık: ₺{taksit_tutari:,.2f}")
-                        
                         if odenen_taksit < taksit_s and kalan > 0:
                             if st.button(f"☑️ {odenen_taksit + 1}. Taksiti Öde", key=f"taksit_{idx}"):
                                 taksit_artir(idx, odenen_taksit, taksit_tutari)
-                                st.toast(f"{odenen_taksit + 1}. taksit ödendi olarak işaretlendi!")
                                 st.rerun()
-                        else:
-                            st.success("Tüm taksitler bitti! 🎉")
                     else:
                         if kalan > 0:
                             odenecek = st.number_input("Ödenen Tutar (₺):", min_value=1.0, max_value=float(kalan), value=float(kalan), key=f"input_p_{idx}")
                             if st.button("💵 Ödeme Yap", key=f"pay_{idx}"):
                                 borc_odeme_yap(idx, odenecek)
-                                st.toast("Ödeme kaydedildi!")
                                 st.rerun()
-                        else:
-                            st.success("Borç Kapandı! 🎉")
                             
                     st.write("")
                     if st.button("🗑️ Kaydı Sil", key=f"del_b_{idx}"):
                         borc_sil(idx)
-                        st.toast("Borç kaydı silindi.")
                         st.rerun()
 
-    # GENERAL FİNANSAL ÖZET BARI
+    # GENEL GENEL SERVET VE VARTLIK ÖZETİ
     st.divider()
-    st.subheader("⚖️ Genel Finansal Denge")
-    toplam_cebe_giren_kar = gerceklesen_kar + potansiyel_kar
-    net_durum = toplam_cebe_giren_kar - kalan_toplam_borc
+    st.subheader("⚖️ Cebindeki Tam Net Servet & Finansal Denge")
     
-    if net_durum >= 0:
-        st.success(f"💚 **Tebrikler!** Toplam Halka Arz kârın (Anlık + Satılan) kalan borçlarını karşılıyor. **Net Artı Bakiyen: +₺{net_durum:,.2f}**")
+    toplam_toplam_varliklar = toplam_guncel_aktif + gerceklesen_kar + toplam_boştaki_nakit_tl
+    net_varlik = toplam_toplam_varliklar - kalan_toplam_borc
+    
+    st.info(f"""
+    * 📈 **Aktif Borsa Portföy Değeri:** ₺{toplam_guncel_aktif:,.2f}
+    * 💵 **Hesaplardaki Boştaki Nakitler:** ₺{toplam_boştaki_nakit_tl:,.2f}
+    * 💰 **Satıştan Cebine Giren Kâr:** ₺{gerceklesen_kar:,.2f}
+    * 💳 **Kalan Toplam Borçlar:** ₺{kalan_toplam_borc:,.2f}
+    """)
+    
+    if net_varlik >= 0:
+        st.success(f"💚 **NET SERVETİN:** **+₺{net_varlik:,.2f}** (Hisse + Nakit + Kâr - Borçlar)")
     else:
-        st.error(f"🔴 **Dikkat:** Halka arz kârların kalan borcunu henüz karşılamıyor. **Net Açık: ₺{net_durum:,.2f}**")
+        st.error(f"🔴 **NET SERVET AÇIĞIN:** **-₺{abs(net_varlik):,.2f}**")
