@@ -258,24 +258,24 @@ def hisse_durumunu_sorgula(symbol):
             "mesaj": "🟡 Hisse henüz işleme açılmamış veya BIST verisi henüz girilmemiş."
         }
 
-# ----------------- ESKİ HALKA ARZ GEÇMİŞİ VERİSİ -----------------
+# ----------------- ESKİ HALKA ARZ GEÇMİŞİ VERİSİ (HESAP SAYISINA GÖRE ÇARPILMIŞ GERÇEK TOPLAM LOTLAR) -----------------
 ESKI_HALKA_ARZ_VERISI = [
-    {"kod": "PAHOL", "ad": "Panora GYO", "maliyet": 1.50, "satis_fiyati": 1.68, "lot": 2800, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "ZERGY", "ad": "Zer GYO", "maliyet": 13.00, "satis_fiyati": 13.22, "lot": 193, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "ARFYE", "ad": "Arf Bio Enerji", "maliyet": 19.50, "satis_fiyati": 31.34, "lot": 47, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "MEYSU", "ad": "Meysu Gıda", "maliyet": 7.50, "satis_fiyati": 10.96, "lot": 128, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "FRMPL", "ad": "Formplast", "maliyet": 30.24, "satis_fiyati": 44.24, "lot": 40, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "ZGYO", "ad": "Ziraat GYO", "maliyet": 9.77, "satis_fiyati": 12.98, "lot": 111, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "UCAYM", "ad": "Üçler Madencilik", "maliyet": 18.00, "satis_fiyati": 35.00, "lot": 54, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "AKHAN", "ad": "Akhan Un", "maliyet": 21.50, "satis_fiyati": 31.46, "lot": 35, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "NETCD", "ad": "Netcad Yazılım", "maliyet": 46.00, "satis_fiyati": 89.50, "lot": 25, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "BESTE", "ad": "Beste Tabak", "maliyet": 14.70, "satis_fiyati": 35.50, "lot": 71, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "ATATR", "ad": "Atateks", "maliyet": 11.20, "satis_fiyati": 16.39, "lot": 178, "sahip": "Ortak (3 Hesap)", "is_eski": True},
-    {"kod": "EMPAE", "ad": "Empaer Ambalaj", "maliyet": 22.00, "satis_fiyati": 37.30, "lot": 20, "sahip": "Ortak (4 Hesap)", "is_eski": True},
-    {"kod": "SVGYO", "ad": "Sevil GYO", "maliyet": 3.64, "satis_fiyati": 6.43, "lot": 174, "sahip": "Ortak (4 Hesap)", "is_eski": True},
-    {"kod": "LXGYO", "ad": "Lux GYO", "maliyet": 12.05, "satis_fiyati": 20.94, "lot": 55, "sahip": "Ortak (4 Hesap)", "is_eski": True},
-    {"kod": "MCARD", "ad": "MasterCard TR", "maliyet": 80.00, "satis_fiyati": 123.70, "lot": 9, "sahip": "Ortak (4 Hesap)", "is_eski": True},
-    {"kod": "AAGYO", "ad": "Ağaoğlu GYO", "maliyet": 21.10, "satis_fiyati": 23.58, "lot": 144, "sahip": "Ortak (4 Hesap)", "is_eski": True},
+    {"kod": "PAHOL", "ad": "Panora GYO", "maliyet": 1.50, "satis_fiyati": 1.68, "lot": 2800 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "ZERGY", "ad": "Zer GYO", "maliyet": 13.00, "satis_fiyati": 13.22, "lot": 193 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "ARFYE", "ad": "Arf Bio Enerji", "maliyet": 19.50, "satis_fiyati": 31.34, "lot": 47 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "MEYSU", "ad": "Meysu Gıda", "maliyet": 7.50, "satis_fiyati": 10.96, "lot": 128 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "FRMPL", "ad": "Formplast", "maliyet": 30.24, "satis_fiyati": 44.24, "lot": 40 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "ZGYO", "ad": "Ziraat GYO", "maliyet": 9.77, "satis_fiyati": 12.98, "lot": 111 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "UCAYM", "ad": "Üçler Madencilik", "maliyet": 18.00, "satis_fiyati": 35.00, "lot": 54 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "AKHAN", "ad": "Akhan Un", "maliyet": 21.50, "satis_fiyati": 31.46, "lot": 35 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "NETCD", "ad": "Netcad Yazılım", "maliyet": 46.00, "satis_fiyati": 89.50, "lot": 25 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "BESTE", "ad": "Beste Tabak", "maliyet": 14.70, "satis_fiyati": 35.50, "lot": 71 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "ATATR", "ad": "Atateks", "maliyet": 11.20, "satis_fiyati": 16.39, "lot": 178 * 3, "sahip": "Ortak (3 Hesap)", "hesap_sayisi": 3},
+    {"kod": "EMPAE", "ad": "Empaer Ambalaj", "maliyet": 22.00, "satis_fiyati": 37.30, "lot": 20 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
+    {"kod": "SVGYO", "ad": "Sevil GYO", "maliyet": 3.64, "satis_fiyati": 6.43, "lot": 174 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
+    {"kod": "LXGYO", "ad": "Lux GYO", "maliyet": 12.05, "satis_fiyati": 20.94, "lot": 55 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
+    {"kod": "MCARD", "ad": "MasterCard TR", "maliyet": 80.00, "satis_fiyati": 123.70, "lot": 9 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
+    {"kod": "AAGYO", "ad": "Ağaoğlu GYO", "maliyet": 21.10, "satis_fiyati": 23.58, "lot": 144 * 4, "sahip": "Ortak (4 Hesap)", "hesap_sayisi": 4},
 ]
 
 # ----------------- CSS / STİL -----------------
@@ -358,7 +358,7 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
 # 1. Aktif Hisse Hesaplamaları
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
-sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40} # Varsayılan en yüksek kâr
+sampiyon_hisse = {"kod": "BESTE", "kar": 4430.40 * 3} 
 
 if not df_aktif.empty:
     for idx, row in df_aktif.iterrows():
@@ -374,13 +374,15 @@ if not df_aktif.empty:
         if kar_val > sampiyon_hisse["kar"]:
             sampiyon_hisse = {"kod": row['kod'], "kar": kar_val}
 
-# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar)
+# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar Çarpılmış Hali)
 gerceklesen_kar = 0.0
 
-# Eski 16 arzın kârını ekle
+# Eski 16 arzın kârını ekle (Tüm hesaplar dahil)
 for e in ESKI_HALKA_ARZ_VERISI:
     k_kar = (e["satis_fiyati"] - e["maliyet"]) * e["lot"]
     gerceklesen_kar += k_kar
+    if k_kar > sampiyon_hisse["kar"]:
+        sampiyon_hisse = {"kod": e['kod'], "kar": k_kar}
 
 if not df_satilan.empty:
     for idx, row in df_satilan.iterrows():
@@ -402,7 +404,7 @@ if not df_nakit.empty:
     for _, row in df_nakit.iterrows():
         toplam_boştaki_nakit += safe_float(row['tutar'])
 
-# 4. GÜNCELLENDİ: TOPLAM NET VARLIĞIM (SADECE ELDEKİ PARALAR: HİSSE + NAKİT)
+# 4. TOPLAM NET VARLIĞIM (ELDEKİ HİSSE + CEPTENAKİT)
 toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit
 
 # ----------------- HERO BANNER -----------------
@@ -448,7 +450,7 @@ with tab1:
             st.info(f"""
             🌟 **Tüm Zamanların En Çok Kâr Ettiren Hissesi:** **{sampiyon_hisse['kod']}**
             
-            💰 Kazandırdığı Net Kâr: **+₺{sampiyon_hisse['kar']:,.2f}**
+            💰 Tüm Hesaplarla Kazandırdığı Toplam Net Kâr: **+₺{sampiyon_hisse['kar']:,.2f}**
             
             *Mükemmel zamanlama ile harika bir kazanç elde edilmiş!* 🔥
             """)
@@ -583,7 +585,7 @@ with tab1:
                                         st.rerun()
                             st.write("---")
 
-    # SATILAN HİSSELERİM SEKMESİ (YENİ SATTIKLARIN + GEÇMİŞ 16 ESKİ HALKA ARZ)
+    # SATILAN HİSSELERİM SEKMESİ (TÜM HESAPLARI KAPSAYAN GERÇEK VERİLER)
     with sub_tab2:
         st.subheader("📜 Tüm Satılan Hisselerin Listesi")
         
@@ -623,8 +625,8 @@ with tab1:
 
         st.divider()
 
-        # 2. Geçmiş Halka Arz Arşivi (16 adet eski hisse)
-        st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi (Tamamlananlar)")
+        # 2. Geçmiş Halka Arz Arşivi (16 adet eski hisse - Kat Sayılarıyla Çarpılmış!)
+        st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi (Tüm Hesapların Toplam Kârı)")
         for idx, e in enumerate(ESKI_HALKA_ARZ_VERISI):
             kod = e["kod"]
             ad = e["ad"]
@@ -632,6 +634,7 @@ with tab1:
             satis_fiyati = e["satis_fiyati"]
             lot = e["lot"]
             sahip = e["sahip"]
+            hesap_sayisi = e["hesap_sayisi"]
             
             toplam_maliyet = lot * maliyet
             toplam_satis_tutari = lot * satis_fiyati
@@ -647,10 +650,10 @@ with tab1:
                 with c1:
                     st.markdown(f"### {kod} <span class='badge-eski'>🏛️ ARŞİV ({sahip})</span>", unsafe_allow_html=True)
                     st.write(f"**{ad}**")
-                    st.caption(f"📦 **{lot} Lot**")
+                    st.caption(f"📦 **{lot} Lot Toplam** ({hesap_sayisi} Hesap x {lot//hesap_sayisi} Lot)")
                 with c2:
                     st.write(f"**Alış:** ₺{maliyet:.2f} ➔ **Satış:** ₺{satis_fiyati:.2f} ({kar_orani_str})")
-                    st.markdown(f"**Elde Edilen Net Kâr:** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
+                    st.markdown(f"**Toplam Net Kâr ({hesap_sayisi} Hesap):** <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
 # TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
