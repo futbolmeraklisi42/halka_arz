@@ -17,18 +17,12 @@ st.set_page_config(
 @st.cache_resource
 def get_gsheet_client():
     try:
-        # Secrets verisini kopyalayalım
         creds = dict(st.secrets["gcp_service_account"])
         
-        # Private key format düzeltmesi (Invalid Padding & PEM hatası çözümü)
+        # Private key format & Invalid Padding düzeltmesi
         if "private_key" in creds:
-            pk = creds["private_key"]
-            # Çift kaçış karakterlerini (\\n) gerçek alt satıra (\n) dönüştür
-            pk = pk.replace("\\n", "\n")
-            
-            # Eğer anahtar tırnak işaretleriyle sarmalanmışsa temizle
-            pk = pk.strip("'\"")
-            
+            pk = str(creds["private_key"])
+            pk = pk.replace("\\n", "\n").strip("'\"")
             creds["private_key"] = pk
 
         return gspread.service_account_from_dict(creds)
@@ -77,7 +71,6 @@ def veri_kaydet(worksheet_name, df):
                 worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
 
             worksheet.clear()
-            # gspread v6+ uyumluluğu için range_name eklenmiştir
             worksheet.update(range_name='A1', values=[df.columns.values.tolist()] + df.values.tolist())
             st.cache_resource.clear()
     except Exception as e:
