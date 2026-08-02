@@ -42,7 +42,32 @@ def get_gsheet_client():
         st.error(f"Google Auth Hatası: {e}")
         return None
 
-# API Kotasını korumak için 5 Dakika (300sn) Caching
+# KURUŞ / NOKTA / VİRGÜL BOZULMALARINI ÖNLEYEN KRİTİK FONKSİYON
+def float_parse(val, default=0.0):
+    if val is None or val == "":
+        return default
+    if isinstance(val, (int, float)):
+        return float(val)
+    
+    val_str = str(val).strip()
+    
+    # Eğer Sheets'ten 45.68 veya 45,68 gibi bir string geldiyse
+    try:
+        # Hem virgül hem nokta varsa (örn: 1,234.56 veya 1.234,56)
+        if ',' in val_str and '.' in val_str:
+            if val_str.find('.') < val_str.find(','):
+                val_str = val_str.replace('.', '').replace(',', '.')
+            else:
+                val_str = val_str.replace(',', '')
+        elif ',' in val_str:
+            val_str = val_str.replace(',', '.')
+            
+        res = float(val_str)
+        return res
+    except:
+        return default
+
+# API Kotasını korumak için 5 Dakika Caching
 @st.cache_data(ttl=300, show_spinner="Veriler çekiliyor...")
 def verileri_getir(worksheet_name):
     try:
@@ -88,23 +113,6 @@ def veri_kaydet(worksheet_name, df):
     except Exception as e:
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
-# Sayısal Dönüştürme Yardımcı Fonksiyonu
-def safe_float(val, default=0.0):
-    try:
-        if isinstance(val, (int, float)):
-            return float(val)
-        val_str = str(val).strip()
-        if not val_str:
-            return default
-        # Google Sheets'ten string gelirse virgül-nokta dönüşümünü güvenli yap
-        if ',' in val_str and '.' in val_str:
-            val_str = val_str.replace('.', '').replace(',', '.')
-        elif ',' in val_str:
-            val_str = val_str.replace(',', '.')
-        return float(val_str)
-    except:
-        return default
-
 # --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
     df = verileri_getir("portfoy")
@@ -114,7 +122,7 @@ def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
         "ad": str(ad),
         "hesap_sayisi": int(hesap_sayisi),
         "lot": int(lot),
-        "maliyet": safe_float(maliyet),
+        "maliyet": round(float_parse(maliyet), 2),
         "satis_fiyati": 0.0,
         "durum": "Aktif"
     }])
@@ -123,7 +131,7 @@ def veri_ekle_halka_arz(kod, ad, hesap_sayisi, lot, maliyet):
 
 def hisse_satis_yap(index_no, satis_fiyati):
     df = verileri_getir("portfoy")
-    df.at[index_no, "satis_fiyati"] = safe_float(satis_fiyati)
+    df.at[index_no, "satis_fiyati"] = round(float_parse(satis_fiyati), 2)
     df.at[index_no, "durum"] = "Satildi"
     veri_kaydet("portfoy", df)
 
@@ -138,7 +146,7 @@ def gelecek_arz_ekle(kod, ad, fiyat, talep_tarihi, islem_tarihi, durum):
     yeni_veri = pd.DataFrame([{
         "kod": str(kod).upper().strip(),
         "ad": str(ad),
-        "fiyat": safe_float(fiyat),
+        "fiyat": round(float_parse(fiyat), 2),
         "talep_tarihi": str(talep_tarihi),
         "islem_tarihi": str(islem_tarihi),
         "durum": durum
@@ -158,7 +166,7 @@ def borc_ekle(baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama):
         "baslik": baslik,
         "tur": tur,
         "kisi_kurum": kisi_kurum,
-        "toplam_tutar": safe_float(toplam_tutar),
+        "toplam_tutar": float_parse(toplam_tutar),
         "taksit_sayisi": int(taksit_sayisi),
         "odenen_taksit": 0,
         "odenen_tutar": 0.0,
@@ -170,12 +178,12 @@ def borc_ekle(baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama):
 def taksit_artir(index_no, mevcut_odenen_taksit, taksit_tutari):
     df = verileri_getir("borclar")
     df.at[index_no, "odenen_taksit"] = int(mevcut_odenen_taksit) + 1
-    df.at[index_no, "odenen_tutar"] = safe_float(df.at[index_no, "odenen_tutar"]) + safe_float(taksit_tutari)
+    df.at[index_no, "odenen_tutar"] = float_parse(df.at[index_no, "odenen_tutar"]) + float_parse(taksit_tutari)
     veri_kaydet("borclar", df)
 
 def borc_odeme_yap(index_no, odenecek_tutar):
     df = verileri_getir("borclar")
-    df.at[index_no, "odenen_tutar"] = safe_float(df.at[index_no, "odenen_tutar"]) + safe_float(odenecek_tutar)
+    df.at[index_no, "odenen_tutar"] = float_parse(df.at[index_no, "odenen_tutar"]) + float_parse(odenecek_tutar)
     veri_kaydet("borclar", df)
 
 def borc_sil(index_no):
@@ -219,7 +227,7 @@ def get_bist_price(symbol, fallback_maliyet):
     veri = canlı_bist_veri_cek(symbol)
     if veri["basarili"]:
         return veri["fiyat"]
-    return safe_float(fallback_maliyet)
+    return float_parse(fallback_maliyet)
 
 def hisse_durumunu_sorgula(symbol):
     if not symbol:
@@ -290,8 +298,8 @@ with tab1:
     toplam_guncel_aktif = 0.0
     if not df_aktif.empty:
         for idx, row in df_aktif.iterrows():
-            toplam_lot = safe_float(row['hesap_sayisi']) * safe_float(row['lot'])
-            maliyet_fiyat = safe_float(row['maliyet'])
+            toplam_lot = float_parse(row['hesap_sayisi']) * float_parse(row['lot'])
+            maliyet_fiyat = float_parse(row['maliyet'])
             toplam_yatirilan_aktif += (toplam_lot * maliyet_fiyat)
             anlik_fiyat = get_bist_price(row['kod'], maliyet_fiyat)
             toplam_guncel_aktif += (toplam_lot * anlik_fiyat)
@@ -301,9 +309,9 @@ with tab1:
     gerceklesen_kar = 0.0
     if not df_satilan.empty:
         for idx, row in df_satilan.iterrows():
-            toplam_lot = safe_float(row['hesap_sayisi']) * safe_float(row['lot'])
-            maliyet_fiyat = safe_float(row['maliyet'])
-            satis_fiyati = safe_float(row['satis_fiyati'])
+            toplam_lot = float_parse(row['hesap_sayisi']) * float_parse(row['lot'])
+            maliyet_fiyat = float_parse(row['maliyet'])
+            satis_fiyati = float_parse(row['satis_fiyati'])
             
             maliyet_tutar = toplam_lot * maliyet_fiyat
             satis_tutar = toplam_lot * satis_fiyati
@@ -362,9 +370,9 @@ with tab1:
             for idx, row in df_aktif.iterrows():
                 kod = str(row['kod'])
                 ad = str(row['ad'])
-                hesap_sayisi = int(safe_float(row['hesap_sayisi'], 1))
-                lot = int(safe_float(row['lot'], 1))
-                maliyet = safe_float(row['maliyet'])
+                hesap_sayisi = int(float_parse(row['hesap_sayisi'], 1))
+                lot = int(float_parse(row['lot'], 1))
+                maliyet = float_parse(row['maliyet'])
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -417,10 +425,10 @@ with tab1:
             for idx, row in df_satilan.iterrows():
                 kod = str(row['kod'])
                 ad = str(row['ad'])
-                hesap_sayisi = int(safe_float(row['hesap_sayisi'], 1))
-                lot = int(safe_float(row['lot'], 1))
-                maliyet = safe_float(row['maliyet'])
-                satis_fiyati = safe_float(row['satis_fiyati'])
+                hesap_sayisi = int(float_parse(row['hesap_sayisi'], 1))
+                lot = int(float_parse(row['lot'], 1))
+                maliyet = float_parse(row['maliyet'])
+                satis_fiyati = float_parse(row['satis_fiyati'])
                 
                 toplam_lot = hesap_sayisi * lot
                 toplam_maliyet = toplam_lot * maliyet
@@ -492,7 +500,7 @@ with tab2:
         for idx, row in df_gelecek.iterrows():
             gkod = str(row['kod'])
             gad = str(row['ad'])
-            gfiyat = safe_float(row['fiyat'])
+            gfiyat = float_parse(row['fiyat'])
             gtalep = str(row['talep_tarihi'])
             gislem = str(row['islem_tarihi'])
             gdurum = str(row['durum'])
@@ -546,8 +554,8 @@ with tab3:
     
     if not df_borc.empty:
         for _, row in df_borc.iterrows():
-            toplam_ana_borc += safe_float(row['toplam_tutar'])
-            toplam_odenen_borc += safe_float(row['odenen_tutar'])
+            toplam_ana_borc += float_parse(row['toplam_tutar'])
+            toplam_odenen_borc += float_parse(row['odenen_tutar'])
         
     kalan_toplam_borc = toplam_ana_borc - toplam_odenen_borc
     
@@ -593,10 +601,10 @@ with tab3:
             baslik = str(row['baslik'])
             tur = str(row['tur'])
             kisi = str(row['kisi_kurum'])
-            toplam = safe_float(row['toplam_tutar'])
-            taksit_s = int(safe_float(row['taksit_sayisi'], 1))
-            odenen_taksit = int(safe_float(row['odenen_taksit'], 0))
-            odenen_tutar = safe_float(row['odenen_tutar'])
+            toplam = float_parse(row['toplam_tutar'])
+            taksit_s = int(float_parse(row['taksit_sayisi'], 1))
+            odenen_taksit = int(float_parse(row['odenen_taksit'], 0))
+            odenen_tutar = float_parse(row['odenen_tutar'])
             aciklama = str(row['aciklama'])
             
             kalan = toplam - odenen_tutar
