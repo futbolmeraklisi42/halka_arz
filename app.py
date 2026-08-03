@@ -181,7 +181,6 @@ def hisse_sil(index_no):
     silinen_sahip = str(df_portfoy.at[index_no, "sahip"])
     durum = str(df_portfoy.at[index_no, "durum"])
     
-    # Eğer silinen hisse daha önce satıldıysa, otomatik eklenen nakit gelirini de nakitler tablosundan düşüyoruz
     if durum == "Satildi":
         df_nakit = verileri_getir("nakitler")
         if not df_nakit.empty:
@@ -394,7 +393,7 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
     df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
     df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
 
-# 1. Aktif Hisse Hesaplamaları ve Şampiyon Tespiti
+# 1. Aktif Hisse Hesaplamaları ve Şampiyon Tespiti (DÜZELTME: Aktif havuz yalnızca Aktif hisselerin anlık değerini toplar)
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
 sampiyon_hisse = {"kod": "BASLANGIC", "kar": -999999.0} 
@@ -413,7 +412,7 @@ if not df_aktif.empty:
         if kar_val > sampiyon_hisse["kar"]:
             sampiyon_hisse = {"kod": row['kod'], "kar": kar_val}
 
-# 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar)
+# 2. Satılan Hisse Kârı Hesaplaması
 gerceklesen_kar = 0.0
 
 for e in ESKI_HALKA_ARZ_VERISI:
