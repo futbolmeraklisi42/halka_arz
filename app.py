@@ -5,6 +5,7 @@ import json
 import re
 import random
 import gspread
+import time
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
@@ -56,47 +57,53 @@ def safe_float(val, default=0.0):
     except:
         return default
 
-@st.cache_data(ttl=300, show_spinner="Veriler çekiliyor...")
+# Kota aşımını önlemek için TTL süresi artırıldı ve hata yönetimi eklendi
+@st.cache_data(ttl=600, show_spinner="Veriler Google Sheets'ten çekiliyor...")
 def verileri_getir(worksheet_name):
-    try:
-        client = get_gsheet_client()
-        if not client:
-            return pd.DataFrame()
-        
-        sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        sh = client.open_by_url(sheet_url)
-        
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            worksheet = sh.worksheet(worksheet_name)
-        except gspread.exceptions.WorksheetNotFound:
-            worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
-            if worksheet_name == "portfoy":
-                worksheet.append_row(["kod", "ad", "sahip", "lot", "maliyet", "satis_fiyati", "durum"])
-            elif worksheet_name == "borclar":
-                worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
-            elif worksheet_name == "nakitler":
-                worksheet.append_row(["tanim", "kisi_hesap", "tutar", "birim", "aciklama"])
+            client = get_gsheet_client()
+            if not client:
+                return pd.DataFrame()
+            
+            sheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+            sh = client.open_by_url(sheet_url)
+            
+            try:
+                worksheet = sh.worksheet(worksheet_name)
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
+                if worksheet_name == "portfoy":
+                    worksheet.append_row(["kod", "ad", "sahip", "lot", "maliyet", "satis_fiyati", "durum"])
+                elif worksheet_name == "borclar":
+                    worksheet.append_row(["baslik", "tur", "kisi_kurum", "toplam_tutar", "taksit_sayisi", "odenen_taksit", "odenen_tutar", "aciklama"])
+                elif worksheet_name == "nakitler":
+                    worksheet.append_row(["tanim", "kisi_hesap", "tutar", "birim", "aciklama"])
 
-        data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
-        
-        if not df.empty:
-            if worksheet_name == "portfoy":
-                df["maliyet"] = df["maliyet"].apply(safe_float)
-                df["satis_fiyati"] = df["satis_fiyati"].apply(safe_float)
-                df["lot"] = df["lot"].apply(lambda x: int(safe_float(x, 1)))
-            elif worksheet_name == "borclar":
-                df["toplam_tutar"] = df["toplam_tutar"].apply(safe_float)
-                df["odenen_tutar"] = df["odenen_tutar"].apply(safe_float)
-                df["taksit_sayisi"] = df["taksit_sayisi"].apply(lambda x: int(safe_float(x, 1)))
-                df["odenen_taksit"] = df["odenen_taksit"].apply(lambda x: int(safe_float(x, 0)))
-            elif worksheet_name == "nakitler":
-                df["tutar"] = df["tutar"].apply(safe_float)
+            data = worksheet.get_all_records()
+            df = pd.DataFrame(data)
+            
+            if not df.empty:
+                if worksheet_name == "portfoy":
+                    df["maliyet"] = df["maliyet"].apply(safe_float)
+                    df["satis_fiyati"] = df["satis_fiyati"].apply(safe_float)
+                    df["lot"] = df["lot"].apply(lambda x: int(safe_float(x, 1)))
+                elif worksheet_name == "borclar":
+                    df["toplam_tutar"] = df["toplam_tutar"].apply(safe_float)
+                    df["odenen_tutar"] = df["odenen_tutar"].apply(safe_float)
+                    df["taksit_sayisi"] = df["taksit_sayisi"].apply(lambda x: int(safe_float(x, 1)))
+                    df["odenen_taksit"] = df["odenen_taksit"].apply(lambda x: int(safe_float(x, 0)))
+                elif worksheet_name == "nakitler":
+                    df["tutar"] = df["tutar"].apply(safe_float)
 
-        return df
-    except Exception as e:
-        st.error(f"Tablo Okuma Hatası [{worksheet_name}]: {e}")
-        return pd.DataFrame()
+            return df
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                time.sleep(2 * (attempt + 1)) # Kotaya takıldıysa birkaç saniye bekleyip tekrar dene
+                continue
+            st.error(f"Tablo Okuma Hatası [{worksheet_name}]: {e}")
+            return pd.DataFrame()
 
 def veri_kaydet(worksheet_name, df):
     try:
@@ -165,13 +172,11 @@ def hisse_satis_yap(index_no, satis_fiyati):
     lot = int(safe_float(df.at[index_no, "lot"], 1))
     sahip = str(df.at[index_no, "sahip"])
     
-    # Satış gelirini nakit tablosuna ekle
     toplam_satis_tutari = lot * satis_fiyati
     nakit_tanim = f"{hisse_kod} Satış Geliri"
     kisi_hesap_adi = f"{sahip} Hesabı" if sahip != "Kendim" else "Kendi Borsa Hesabım"
     nakit_ekle(nakit_tanim, kisi_hesap_adi, toplam_satis_tutari, "TL", f"Otomatik eklendi: {lot} lot {hisse_kod} satışından.")
 
-    # Hisseden zarar/kâr durumunu kaydetmek ve aktif listeden anında düşürmek için satırı siliyoruz
     df = df.drop(index_no).reset_index(drop=True)
     veri_kaydet("portfoy", df)
 
