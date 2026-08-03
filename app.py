@@ -165,14 +165,15 @@ def hisse_satis_yap(index_no, satis_fiyati):
     lot = int(safe_float(df.at[index_no, "lot"], 1))
     sahip = str(df.at[index_no, "sahip"])
     
-    df.at[index_no, "satis_fiyati"] = satis_fiyati
-    df.at[index_no, "durum"] = "Satildi"
-    veri_kaydet("portfoy", df)
-    
+    # Satış gelirini nakit tablosuna ekle
     toplam_satis_tutari = lot * satis_fiyati
     nakit_tanim = f"{hisse_kod} Satış Geliri"
     kisi_hesap_adi = f"{sahip} Hesabı" if sahip != "Kendim" else "Kendi Borsa Hesabım"
     nakit_ekle(nakit_tanim, kisi_hesap_adi, toplam_satis_tutari, "TL", f"Otomatik eklendi: {lot} lot {hisse_kod} satışından.")
+
+    # Hisseden zarar/kâr durumunu kaydetmek ve aktif listeden anında düşürmek için satırı siliyoruz
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("portfoy", df)
 
 def hisse_sil(index_no):
     df_portfoy = verileri_getir("portfoy")
@@ -393,7 +394,7 @@ if not df_portfoy.empty and "durum" in df_portfoy.columns:
     df_aktif = df_portfoy[df_portfoy["durum"] == "Aktif"]
     df_satilan = df_portfoy[df_portfoy["durum"] == "Satildi"]
 
-# 1. Aktif Hisse Hesaplamaları ve Şampiyon Tespiti (DÜZELTME: Aktif havuz yalnızca Aktif hisselerin anlık değerini toplar)
+# 1. Aktif Hisse Hesaplamaları ve Şampiyon Tespiti
 toplam_yatirilan_aktif = 0.0
 toplam_guncel_aktif = 0.0
 sampiyon_hisse = {"kod": "BASLANGIC", "kar": -999999.0} 
