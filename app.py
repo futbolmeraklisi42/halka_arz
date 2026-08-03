@@ -160,7 +160,6 @@ def veri_ekle_halka_arz_kisi(kod, ad, sahip, lot, maliyet):
 def hisse_satis_yap(index_no, satis_fiyati):
     df = verileri_getir("portfoy")
     
-    # Satılan hissenin bilgilerini alalım
     satis_fiyati = safe_float(satis_fiyati)
     hisse_kod = str(df.at[index_no, "kod"])
     lot = int(safe_float(df.at[index_no, "lot"], 1))
@@ -170,17 +169,35 @@ def hisse_satis_yap(index_no, satis_fiyati):
     df.at[index_no, "durum"] = "Satildi"
     veri_kaydet("portfoy", df)
     
-    # Kalan parayı otomatik olarak boştaki nakitlere ekleyelim
     toplam_satis_tutari = lot * satis_fiyati
     nakit_tanim = f"{hisse_kod} Satış Geliri"
-    # Kişiye göre hesap ismi uyarlaması
     kisi_hesap_adi = f"{sahip} Hesabı" if sahip != "Kendim" else "Kendi Borsa Hesabım"
     nakit_ekle(nakit_tanim, kisi_hesap_adi, toplam_satis_tutari, "TL", f"Otomatik eklendi: {lot} lot {hisse_kod} satışından.")
 
 def hisse_sil(index_no):
-    df = verileri_getir("portfoy")
-    df = df.drop(index_no).reset_index(drop=True)
-    veri_kaydet("portfoy", df)
+    df_portfoy = verileri_getir("portfoy")
+    
+    silinen_kod = str(df_portfoy.at[index_no, "kod"])
+    silinen_sahip = str(df_portfoy.at[index_no, "sahip"])
+    durum = str(df_portfoy.at[index_no, "durum"])
+    
+    # Eğer silinen hisse daha önce satıldıysa, otomatik eklenen nakit gelirini de nakitler tablosundan düşüyoruz
+    if durum == "Satildi":
+        df_nakit = verileri_getir("nakitler")
+        if not df_nakit.empty:
+            aranan_tanim = f"{silinen_kod} Satış Geliri"
+            hedef_hesap = f"{silinen_sahip} Hesabı" if silinen_sahip != "Kendim" else "Kendi Borsa Hesabım"
+            
+            silinecek_nakitler = df_nakit[
+                (df_nakit["tanim"] == aranan_tanim) & 
+                (df_nakit["kisi_hesap"] == hedef_hesap)
+            ]
+            if not silinecek_nakitler.empty:
+                df_nakit = df_nakit.drop(silinecek_nakitler.index).reset_index(drop=True)
+                veri_kaydet("nakitler", df_nakit)
+
+    df_portfoy = df_portfoy.drop(index_no).reset_index(drop=True)
+    veri_kaydet("portfoy", df_portfoy)
 
 # --- BORÇ İŞLEMLERİ ---
 def borc_ekle(baslik, tur, kisi_kurum, toplam_tutar, taksit_sayisi, aciklama):
@@ -399,7 +416,6 @@ if not df_aktif.empty:
 # 2. Satılan Hisse Kârı Hesaplaması (Google Sheets + 16 Eski Arzlar)
 gerceklesen_kar = 0.0
 
-# Eski arzların kârını ekle ve şampiyonu doğru bul
 for e in ESKI_HALKA_ARZ_VERISI:
     k_kar = (e["satis_fiyati"] - e["maliyet"]) * e["lot"]
     gerceklesen_kar += k_kar
