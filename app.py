@@ -121,6 +121,24 @@ def veri_kaydet(worksheet_name, df):
     except Exception as e:
         st.error(f"Kaydetme Hatası [{worksheet_name}]: {e}")
 
+# --- NAKİT İŞLEMLERİ ---
+def nakit_ekle(tanim, kisi_hesap, tutar, birim, aciklama):
+    df = verileri_getir("nakitler")
+    yeni_veri = pd.DataFrame([{
+        "tanim": tanim,
+        "kisi_hesap": kisi_hesap,
+        "tutar": safe_float(tutar),
+        "birim": birim,
+        "aciklama": aciklama
+    }])
+    df = pd.concat([df, yeni_veri], ignore_index=True)
+    veri_kaydet("nakitler", df)
+
+def nakit_sil(index_no):
+    df = verileri_getir("nakitler")
+    df = df.drop(index_no).reset_index(drop=True)
+    veri_kaydet("nakitler", df)
+
 # --- PORTFÖY İŞLEMLERİ ---
 def veri_ekle_halka_arz_kisi(kod, ad, sahip, lot, maliyet):
     df = verileri_getir("portfoy")
@@ -141,9 +159,23 @@ def veri_ekle_halka_arz_kisi(kod, ad, sahip, lot, maliyet):
 
 def hisse_satis_yap(index_no, satis_fiyati):
     df = verileri_getir("portfoy")
-    df.at[index_no, "satis_fiyati"] = safe_float(satis_fiyati)
+    
+    # Satılan hissenin bilgilerini alalım
+    satis_fiyati = safe_float(satis_fiyati)
+    hisse_kod = str(df.at[index_no, "kod"])
+    lot = int(safe_float(df.at[index_no, "lot"], 1))
+    sahip = str(df.at[index_no, "sahip"])
+    
+    df.at[index_no, "satis_fiyati"] = satis_fiyati
     df.at[index_no, "durum"] = "Satildi"
     veri_kaydet("portfoy", df)
+    
+    # Kalan parayı otomatik olarak boştaki nakitlere ekleyelim
+    toplam_satis_tutari = lot * satis_fiyati
+    nakit_tanim = f"{hisse_kod} Satış Geliri"
+    # Kişiye göre hesap ismi uyarlaması
+    kisi_hesap_adi = f"{sahip} Hesabı" if sahip != "Kendim" else "Kendi Borsa Hesabım"
+    nakit_ekle(nakit_tanim, kisi_hesap_adi, toplam_satis_tutari, "TL", f"Otomatik eklendi: {lot} lot {hisse_kod} satışından.")
 
 def hisse_sil(index_no):
     df = verileri_getir("portfoy")
@@ -181,24 +213,6 @@ def borc_sil(index_no):
     df = verileri_getir("borclar")
     df = df.drop(index_no).reset_index(drop=True)
     veri_kaydet("borclar", df)
-
-# --- NAKİT İŞLEMLERİ ---
-def nakit_ekle(tanim, kisi_hesap, tutar, birim, aciklama):
-    df = verileri_getir("nakitler")
-    yeni_veri = pd.DataFrame([{
-        "tanim": tanim,
-        "kisi_hesap": kisi_hesap,
-        "tutar": safe_float(tutar),
-        "birim": birim,
-        "aciklama": aciklama
-    }])
-    df = pd.concat([df, yeni_veri], ignore_index=True)
-    veri_kaydet("nakitler", df)
-
-def nakit_sil(index_no):
-    df = verileri_getir("nakitler")
-    df = df.drop(index_no).reset_index(drop=True)
-    veri_kaydet("nakitler", df)
 
 # ----------------- TRADINGVIEW CANLI BİST VERİSİ -----------------
 @st.cache_data(ttl=300)
