@@ -632,7 +632,6 @@ with tab1:
                 
                 toplam_lot_sat = sub_df_sat["lot"].sum()
                 
-                # Toplam satılan maliyet ve satış geliri hesabı
                 toplam_maliyet_sat = 0.0
                 toplam_gelir_sat = 0.0
                 for _, r in sub_df_sat.iterrows():
