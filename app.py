@@ -531,7 +531,7 @@ with tab1:
     st.divider()
 
     with st.expander("➕ Yeni Halka Arz Ekle", expanded=False):
-        sorgu_kod = st.text_input("Hisse Kodu (Örn: KARCL atau MASFN):", key="sorgu_input").upper().strip()
+        sorgu_kod = st.text_input("Hisse Kodu (Örn: KARCL veya MASFN):", key="sorgu_input").upper().strip()
         
         otomatik_fiyat = 10.0
         otomatik_ad = ""
@@ -777,10 +777,10 @@ with tab2:
     st.metric("Cebimdeki / Hesaplardaki Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit:,.2f}")
     st.divider()
 
-    with st.expander("➕ Yeni Boşta Nakit / Para Ekle", expanded=True):
+    with st.expander("➕ Yeni Boşta Nakit / Para Ekle", expanded=False):
         with st.form("yeni_nakit_formu", clear_on_submit=True):
             cn1, cn2 = st.columns(2)
-            n_tanim = cn1.text_input("Nakit Tanımı (Örn: Borsa Hesabı Boşta Para, Cüzdan, Abla Hesabı Para):")
+            n_tanim = cn1.text_input("Nakit Tanımı (Örn: Borsa Hesabı Boşta Para, Temettü Nakiti):")
             n_kisi = cn2.selectbox("Paranın Durduğu Hesap/Kişi:", ["Kendi Borsa Hesabım", "Ablamın Hesabı", "Annemin Hesabı", "Babamın Hesabı", "Cüzdan/Nakit"])
             
             cn3, cn4 = st.columns(2)
@@ -796,30 +796,43 @@ with tab2:
                     st.success("✅ Nakit varlık eklendi!")
                     st.rerun()
 
-    st.subheader("📋 Kayıtlı Boşta Nakit Listesi")
+    st.subheader("📋 Hesap Bazlı Nakit Detayları")
     if df_nakit.empty:
         st.info("Henüz boşta nakit kaydı girmediniz.")
     else:
-        for idx, row in df_nakit.iterrows():
-            tanim = str(row['tanim'])
-            kisi_hesap = str(row['kisi_hesap'])
-            tutar = safe_float(row['tutar'])
-            birim = str(row['birim'])
-            aciklama = str(row['aciklama'])
-
+        unique_hesaplar = df_nakit["kisi_hesap"].unique()
+        
+        for hesap in unique_hesaplar:
+            sub_nakit = df_nakit[df_nakit["kisi_hesap"] == hesap]
+            hesap_toplam = sub_nakit["tutar"].sum()
+            
             with st.container(border=True):
-                nc1, nc2, nc3 = st.columns([2, 2, 1])
-                with nc1:
-                    st.markdown(f"### 💵 {tanim}")
-                    st.write(f"*Bulunduğu Yer:* {kisi_hesap}")
-                    if aciklama and aciklama.lower() != "nan":
-                        st.caption(f"📝 Not: {aciklama}")
-                with nc2:
-                    st.markdown(f"### <span style='color:#10b981;'>₺{tutar:,.2f} {birim}</span>", unsafe_allow_html=True)
-                with nc3:
-                    if st.button("🗑️ Sil", key=f"del_nakit_{idx}"):
-                        nakit_sil(idx)
-                        st.rerun()
+                hc1, hc2 = st.columns([3, 1])
+                with hc1:
+                    st.markdown(f"### 👤 {hesap}")
+                with hc2:
+                    st.markdown(f"### <span style='color:#10b981;'>₺{hesap_toplam:,.2f}</span>", unsafe_allow_html=True)
+                
+                st.write("---")
+                st.caption("🔍 Bu hesaptaki alt kalemler:")
+                
+                for idx, row in sub_nakit.iterrows():
+                    tanim = str(row['tanim'])
+                    tutar = safe_float(row['tutar'])
+                    birim = str(row['birim'])
+                    aciklama = str(row['aciklama'])
+                    
+                    dc1, dc2, dc3 = st.columns([2.5, 2, 1])
+                    with dc1:
+                        st.markdown(f"• **{tanim}**")
+                        if aciklama and aciklama.lower() != "nan":
+                            st.caption(f"  📝 {aciklama}")
+                    with dc2:
+                        st.markdown(f"₺{tutar:,.2f} {birim}")
+                    with dc3:
+                        if st.button("🗑️ Sil", key=f"del_nakit_{idx}"):
+                            nakit_sil(idx)
+                            st.rerun()
 
 # =========================================================
 # TAB 3: BORÇ & KREDİ TAKİP
