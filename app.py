@@ -9,8 +9,8 @@ import time
 
 # ----------------- SAYFA AYARLARI -----------------
 st.set_page_config(
-    page_title="Finansal Portföy Portalı 💰",
-    page_icon="💰",
+    page_title="Nexus Varlık & Finans Yönetimi",
+    page_icon="💎",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -57,7 +57,7 @@ def safe_float(val, default=0.0):
     except:
         return default
 
-@st.cache_data(ttl=600, show_spinner="Veriler Google Sheets'ten çekiliyor...")
+@st.cache_data(ttl=600, show_spinner="Veriler Google Sheets'ten yükleniyor...")
 def verileri_getir(worksheet_name):
     max_retries = 3
     for attempt in range(max_retries):
@@ -358,91 +358,127 @@ ESKI_HALKA_ARZ_VERISI = [
     {"kod": "SARAE", "ad": "ŞARAE", "maliyet": 70.00, "satis_fiyati": 102.40, "lot": 62 * 4, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5}
 ]
 
-# ----------------- CSS / STİL (LOŞ MOR ÇERÇEVELİ & MODERN BAŞLIKLI) -----------------
+# ----------------- MODERN, HAVALI & PREMIUM CSS (SİYAH-MOR GECE TEMA) -----------------
 st.markdown("""
 <style>
-    .main { background-color: #0b0f19; }
+    /* Genel Arka Plan ve Tipografi */
+    .stApp {
+        background-color: #07090e;
+        color: #e2e8f0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
     
-    .hero-banner {
-        background: linear-gradient(135deg, #0f172a 0%, #161f33 100%);
-        border: 1px solid rgba(147, 51, 234, 0.2);
-        border-radius: 20px;
-        padding: 22px;
-        color: white;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    .main { 
+        background-color: #07090e; 
     }
 
+    /* Üst Karşılama Banner (Neon / Sleek Look) */
+    .hero-banner {
+        background: linear-gradient(135deg, #0d111a 0%, #131b2e 100%);
+        border: 1px solid rgba(168, 85, 247, 0.25);
+        border-radius: 16px;
+        padding: 24px 28px;
+        color: white;
+        margin-bottom: 30px;
+        box-shadow: 0 12px 30px -10px rgba(107, 33, 168, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-banner::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; bottom: 0; width: 150px;
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    /* Metrik Kartları */
     .stMetric {
-        background: rgba(30, 41, 59, 0.7);
-        padding: 18px;
-        border-radius: 18px;
+        background: rgba(17, 24, 39, 0.75);
+        padding: 20px;
+        border-radius: 16px;
         border: 1px solid rgba(147, 51, 234, 0.2);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .stMetric:hover {
+        border-color: rgba(168, 85, 247, 0.5);
+        transform: translateY(-2px);
     }
     
-    .badge-sahip { background-color: #334155; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .badge-satildi { background-color: #475569; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-    .badge-eski { background-color: #7c3aed; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    /* Rozetler ve Etiketler */
+    .badge-sahip { 
+        background-color: rgba(51, 65, 85, 0.6); 
+        color: #f1f5f9; 
+        padding: 4px 10px; 
+        border-radius: 8px; 
+        font-size: 12px; 
+        font-weight: 600; 
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .badge-satildi { background-color: #334155; color: #94a3b8; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+    .badge-eski { background-color: rgba(124, 58, 237, 0.2); color: #c084fc; border: 1px solid rgba(124, 58, 237, 0.4); padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
     
     .badge-kar-yesil {
-        background-color: rgba(16, 185, 129, 0.15);
-        color: #10b981;
+        background-color: rgba(16, 185, 129, 0.12);
+        color: #34d399;
         border: 1px solid rgba(16, 185, 129, 0.3);
-        padding: 5px 12px;
-        border-radius: 10px;
-        font-weight: bold;
-        font-size: 15px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
     }
     .badge-zarar-kirmizi {
-        background-color: rgba(239, 68, 68, 0.15);
-        color: #ef4444;
+        background-color: rgba(239, 68, 68, 0.12);
+        color: #f87171;
         border: 1px solid rgba(239, 68, 68, 0.3);
-        padding: 5px 12px;
-        border-radius: 10px;
-        font-weight: bold;
-        font-size: 15px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
     }
 
     /* --- EXPANDER KUTU GÖRÜNÜMÜ (LOŞ MOR ÇERÇEVELİ) --- */
     [data-testid="stExpander"] {
-        background: rgba(20, 24, 38, 0.6);
-        border: 1px solid rgba(147, 51, 234, 0.3);
-        border-radius: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        background: rgba(13, 17, 26, 0.7);
+        border: 1px solid rgba(147, 51, 234, 0.25) !important;
+        border-radius: 14px !important;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         transition: all 0.3s ease;
     }
     [data-testid="stExpander"]:hover {
-        border-color: rgba(168, 85, 247, 0.6);
-        box-shadow: 0 6px 18px rgba(147, 51, 234, 0.15);
+        border-color: rgba(168, 85, 247, 0.5) !important;
+        box-shadow: 0 6px 20px rgba(147, 51, 234, 0.12);
     }
     [data-testid="stExpander"] details {
-        padding: 4px 8px;
+        padding: 2px 6px;
     }
     [data-testid="stExpander"] summary {
         font-weight: 600;
-        font-size: 16px;
-        color: #f8fafc;
+        font-size: 15px;
+        color: #f1f5f9;
     }
 
-    /* --- MODERN MİNİMALİST SEKME / TAB TASARIMI (KUTUSUZ & ŞIK) --- */
+    /* --- MODERN MİNİMALİST SEKMELER (TABLAR) --- */
     .stTabs [data-baseweb="tab-list"] {
         display: flex;
-        gap: 8px;
+        gap: 12px;
         background-color: transparent !important;
         padding: 0px !important;
         border: none !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-        margin-bottom: 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+        margin-bottom: 25px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
+        height: 48px;
         background-color: transparent !important;
         border-radius: 8px 8px 0 0 !important;
         color: #94a3b8;
         font-weight: 600;
-        padding: 0 20px;
+        font-size: 15px;
+        padding: 0 24px;
         border: none !important;
         box-shadow: none !important;
         transition: all 0.2s ease;
@@ -456,6 +492,14 @@ st.markdown("""
         color: #c084fc !important;
         border-bottom: 2px solid #a855f7 !important;
         box-shadow: none !important;
+    }
+
+    /* Konteyner / Kart tasarımları */
+    [data-testid="stVerticalBlock"] > [data-testid="stContainer"] {
+        background-color: rgba(13, 17, 26, 0.5);
+        border: 1px solid rgba(147, 51, 234, 0.15);
+        border-radius: 14px;
+        padding: 4px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -535,15 +579,15 @@ toplam_toplam_varlik = toplam_guncel_aktif + toplam_boştaki_nakit
 
 st.markdown(f"""
 <div class="hero-banner">
-    <h2 style="margin:0; font-size:24px;">Hoş Geldin! 👋</h2>
-    <p style="margin: 8px 0 0 0; opacity: 0.9; font-style: italic; font-size: 15px;">{secilen_soz}</p>
+    <h2 style="margin:0; font-size:22px; font-weight:700; color:#f8fafc; letter-spacing: -0.5px;">Nexus Finansal Komuta Merkezi 💎</h2>
+    <p style="margin: 8px 0 0 0; color: #94a3b8; font-style: italic; font-size: 14px;">{secilen_soz}</p>
 </div>
 """, unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs([
-    "🚀 Portföyüm & Hisseler", 
-    "💵 Boştaki Nakit & Varlıklar", 
-    "💳 Borç & Kredi Takip"
+    "🚀 Portföy & Hisseler", 
+    "💵 Nakit & Varlık Dağılımı", 
+    "💳 Borç & Kredi Takibi"
 ])
 
 # =========================================================
@@ -551,10 +595,10 @@ tab1, tab2, tab3 = st.tabs([
 # =========================================================
 with tab1:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📈 Aktif Hisselerdeki Para", f"₺{toplam_guncel_aktif:,.2f}")
-    col2.metric("💵 Cebimdeki / Boşta Nakit", f"₺{toplam_boştaki_nakit:,.2f}")
-    col3.metric("🏆 GERÇEK TOPLAM VARLIĞIM", f"₺{toplam_toplam_varlik:,.2f}")
-    col4.metric("💰 Tüm Zamanlar Net Kârı", f"₺{gerceklesen_kar:,.2f}")
+    col1.metric("📈 Aktif Hisseler", f"₺{toplam_guncel_aktif:,.2f}")
+    col2.metric("💵 Boşta Nakit", f"₺{toplam_boştaki_nakit:,.2f}")
+    col3.metric("🏆 Toplam Varlık", f"₺{toplam_toplam_varlik:,.2f}")
+    col4.metric("💰 Tüm Zamanlar Kâr", f"₺{gerceklesen_kar:,.2f}")
 
     st.divider()
 
@@ -569,13 +613,13 @@ with tab1:
             st.bar_chart(chart_data)
 
         with c_right:
-            st.markdown("### 🏆 Portföyün Şampiyonu")
+            st.markdown("### 🏆 Portföyün Yıldızı")
             st.info(f"""
-            🌟 *Tüm Zamanların En Çok Kâr Ettiren Hissesi:* *{sampiyon_hisse['kod']}*
+            🌟 *En Çok Kâr Ettiren:* *{sampiyon_hisse['kod']}*
             
-            💰 Tüm Hesaplarla Kazandırdığı Toplam Net Kâr: *+₺{sampiyon_hisse['kar']:,.2f}*
+            💰 Sağlanan Toplam Net Kâr: *+₺{sampiyon_hisse['kar']:,.2f}*
             
-            Mükemmel zamanlama ile harika bir kazanç elde edilmiş! 🔥
+            Harika bir performans sergileniyor! 🔥
             """)
 
     st.divider()
@@ -600,7 +644,7 @@ with tab1:
             f_kod = col_f1.text_input("Hisse Kodu:", value=sorgu_kod).upper().strip()
             f_ad = col_f2.text_input("Şirket Adı:", value=otomatik_ad)
             
-            st.write("👥 *Kişi ve Lot Dağılımını Girin:*")
+            st.write("👥 *Kişi ve Lot Dağılımı:*")
             col_k1, col_k2, col_k3, col_k4, col_k5 = st.columns(5)
             lot_kendim = col_k1.number_input("Kendim (Lot):", min_value=0, value=10, step=1)
             lot_abla = col_k2.number_input("Ablam (Lot):", min_value=0, value=0, step=1)
@@ -628,14 +672,14 @@ with tab1:
                             eklenen_kisi_sayisi += 1
                     
                     if eklenen_kisi_sayisi > 0:
-                        st.success(f"✅ {f_kod} seçilen kişiler için kaydedildi ve ilgili hesapların boştaki nakitlerinden düşüldü!")
+                        st.success(f"✅ {f_kod} başarıyla kaydedildi ve hesap bakiyelerinden düşüldü!")
                         st.rerun()
 
-    sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisselerim", "📜 Satılan Hisselerim (Tüm Geçmiş)"])
+    sub_tab1, sub_tab2 = st.tabs(["📌 Aktif Hisseler", "📜 Satış Geçmişi & Arşiv"])
 
     with sub_tab1:
         if df_aktif.empty:
-            st.info("Şu an aktif portföyünde hisse bulunmuyor.")
+            st.info("Aktif portföyde hisse bulunmuyor.")
         else:
             unique_kods = df_aktif["kod"].unique()
             
@@ -666,14 +710,14 @@ with tab1:
                         st.markdown("📦 *Toplam Lot*")
                         st.markdown(f"*{toplam_lot} Lot*")
                     with c3:
-                        st.markdown("💵 *Anlık Fiyat / Değişim*")
+                        st.markdown("💵 *Fiyat / Değişim*")
                         st.markdown(f"*₺{anlik_fiyat:.2f}* ({yuzde_str})")
                     with c4:
-                        st.markdown("💰 *Toplam Kâr / Zarar*")
+                        st.markdown("💰 *Kâr / Zarar*")
                         st.markdown(f"<span class='{badge_class}'>{kar_str}</span>", unsafe_allow_html=True)
 
-                    with st.expander("👥 Kişi/Hesap Detaylarını Göster & İşlem Yap", expanded=False):
-                        st.caption(f"Maliyet: ₺{toplam_maliyet:,.2f} (Birim: ₺{birim_maliyet:.2f}) | Portföy Değeri: ₺{toplam_guncel_deger:,.2f}")
+                    with st.expander("👥 Hesap Detayları & İşlemler", expanded=False):
+                        st.caption(f"Maliyet: ₺{toplam_maliyet:,.2f} (Birim: ₺{birim_maliyet:.2f}) | Değer: ₺{toplam_guncel_deger:,.2f}")
                         st.divider()
 
                         for idx, row in sub_df.iterrows():
@@ -683,7 +727,7 @@ with tab1:
                             k_deger = lot * anlik_fiyat
                             k_kar = k_deger - k_maliyet
                             k_kar_str = f"+₺{k_kar:,.2f}" if k_kar >= 0 else f"-₺{abs(k_kar):,.2f}"
-                            k_kar_renk = "#10b981" if k_kar >= 0 else "#ef4444"
+                            k_kar_renk = "#34d399" if k_kar >= 0 else "#f87171"
 
                             kc1, kc2, kc3, kc4 = st.columns([2, 3, 2, 2])
                             with kc1:
@@ -709,10 +753,10 @@ with tab1:
                             st.write("---")
 
     with sub_tab2:
-        st.subheader("📜 Satılan Hisselerin Listesi")
+        st.subheader("📜 Satılan Hisseler")
         
         if df_satilan.empty:
-            st.info("Henüz satışı gerçekleştirilmiş hisse bulunmuyor.")
+            st.info("Satışı gerçekleştirilmiş hisse bulunmuyor.")
         else:
             unique_satilan_kods = df_satilan["kod"].unique()
             
@@ -753,11 +797,11 @@ with tab1:
                         st.markdown("💵 *Ort. Alış / Satış*")
                         st.markdown(f"₺{ort_maliyet:.2f} ➔ ₺{ort_satis:.2f} ({kar_orani_str})")
                     with c4:
-                        st.markdown("💰 *Toplam Net Kâr*")
+                        st.markdown("💰 *Net Kâr*")
                         st.markdown(f"<span class='{badge_class_sat}'>{net_kar_str}</span>", unsafe_allow_html=True)
 
-                    with st.expander("👥 Kişi/Hesap Satış Detaylarını Göster & Sil", expanded=False):
-                        st.caption(f"Toplam Maliyet: ₺{toplam_maliyet_sat:,.2f} | Toplam Satış Geliri: ₺{toplam_gelir_sat:,.2f}")
+                    with st.expander("👥 Hesap Detayları & Sil", expanded=False):
+                        st.caption(f"Maliyet: ₺{toplam_maliyet_sat:,.2f} | Satış Geliri: ₺{toplam_gelir_sat:,.2f}")
                         st.divider()
 
                         for idx, row in sub_df_sat.iterrows():
@@ -770,7 +814,7 @@ with tab1:
                             k_gelir = lot * satis_fiyati
                             k_kar = k_gelir - k_maliyet
                             k_kar_str = f"+₺{k_kar:,.2f}" if k_kar >= 0 else f"-₺{abs(k_kar):,.2f}"
-                            k_kar_renk = "#10b981" if k_kar >= 0 else "#ef4444"
+                            k_kar_renk = "#34d399" if k_kar >= 0 else "#f87171"
 
                             kc1, kc2, kc3, kc4 = st.columns([2, 3, 2, 2])
                             with kc1:
@@ -788,7 +832,7 @@ with tab1:
 
         st.divider()
 
-        st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi (Tüm Hesapların Toplam Kârı)")
+        st.markdown("#### 🏛️ Geçmiş Halka Arz Arşivi")
         for idx, e in enumerate(ESKI_HALKA_ARZ_VERISI):
             kod = e["kod"]
             ad = e["ad"]
@@ -805,33 +849,33 @@ with tab1:
             
             kar_orani_str = f"+%{kar_orani:.2f}" if kar_orani >= 0 else f"-%{abs(kar_orani):.2f}"
             net_kar_str = f"+₺{net_kar:,.2f}" if net_kar >= 0 else f"-₺{abs(net_kar):,.2f}"
-            net_kar_renk = "#10b981" if net_kar >= 0 else "#ef4444"
+            net_kar_renk = "#34d399" if net_kar >= 0 else "#f87171"
 
             with st.container(border=True):
                 c1, c2 = st.columns([2, 2])
                 with c1:
                     st.markdown(f"### {kod} <span class='badge-eski'>🏛️ ARŞİV ({sahip})</span>", unsafe_allow_html=True)
                     st.write(f"*{ad}*")
-                    st.caption(f"📦 *{lot} Lot Toplam* ({hesap_sayisi} Hesap x {lot//hesap_sayisi} Lot)")
+                    st.caption(f"📦 *{lot} Lot Toplam* ({hesap_sayisi} Hesap)")
                 with c2:
                     st.write(f"*Alış:* ₺{maliyet:.2f} ➔ *Satış:* ₺{satis_fiyati:.2f} ({kar_orani_str})")
-                    st.markdown(f"*Toplam Net Kâr ({hesap_sayisi} Hesap):* <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
+                    st.markdown(f"*Toplam Net Kâr:* <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
 # TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
 # =========================================================
 with tab2:
-    st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
-    st.caption("Farklı hesaplarda senin adına duran boşta TL, Dolar, Euro veya Altın nakitlerini buradan takip et.")
+    st.title("💵 Boştaki Nakit & Varlıklar")
+    st.caption("Farklı hesaplardaki boşta duran nakit varlıklarını yönet.")
     
-    st.metric("Cebimdeki / Hesaplardaki Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit:,.2f}")
+    st.metric("Toplam Boşta Nakit (TL)", f"₺{toplam_boştaki_nakit:,.2f}")
     st.divider()
 
-    with st.expander("➕ Yeni Boşta Nakit / Para Ekle", expanded=False):
+    with st.expander("➕ Yeni Nakit Varlık Ekle", expanded=False):
         with st.form("yeni_nakit_formu", clear_on_submit=True):
             cn1, cn2 = st.columns(2)
-            n_tanim = cn1.text_input("Nakit Tanımı (Örn: Borsa Hesabı Boşta Para, Temettü Nakiti):")
-            n_kisi = cn2.selectbox("Paranın Durduğu Hesap/Kişi:", ["Kendi Borsa Hesabım", "Ablamın Hesabı", "Annemin Hesabı", "Babamın Hesabı", "Cüzdan/Nakit"])
+            n_tanim = cn1.text_input("Nakit Tanımı (Örn: Borsa Hesabı Boşta Para):")
+            n_kisi = cn2.selectbox("Hesap / Kişi:", ["Kendi Borsa Hesabım", "Ablamın Hesabı", "Annemin Hesabı", "Babamın Hesabı", "Cüzdan/Nakit"])
             
             cn3, cn4 = st.columns(2)
             n_tutar = cn3.number_input("Tutar (₺):", min_value=1.0, value=1000.0, step=100.0)
@@ -846,9 +890,9 @@ with tab2:
                     st.success("✅ Nakit varlık eklendi!")
                     st.rerun()
 
-    st.subheader("📋 Hesap Bazlı Nakit Detayları")
+    st.subheader("📋 Hesap Bazlı Nakit Dağılımı")
     if df_nakit.empty:
-        st.info("Henüz boşta nakit kaydı girmediniz.")
+        st.info("Kayıtlı boşta nakit bulunmuyor.")
     else:
         unique_hesaplar = df_nakit["kisi_hesap"].unique()
         
@@ -860,16 +904,15 @@ with tab2:
                 nc1, nc2, nc3 = st.columns([3, 2, 2])
                 with nc1:
                     st.markdown(f"### 👤 {hesap}")
-                    st.caption(f"Toplam {len(sub_nakit)} kalem varlık")
+                    st.caption(f"Toplam {len(sub_nakit)} kalem")
                 with nc2:
                     st.markdown("💰 *Toplam Tutar*")
                     st.markdown(f"*₺{hesap_toplam:,.2f}*")
                 with nc3:
                     st.markdown("📊 *Durum*")
-                    st.markdown("<span class='badge-kar-yesil'>AKTİF NAKİT</span>", unsafe_allow_html=True)
+                    st.markdown("<span class='badge-kar-yesil'>AKTİF</span>", unsafe_allow_html=True)
 
-                with st.expander(f"🔍 {hesap} - Detay Kalemleri Göster & Sil", expanded=False):
-                    st.caption("Bu hesaba ait alt kalemler:")
+                with st.expander(f"🔍 {hesap} - Kalem Detayları & Sil", expanded=False):
                     st.divider()
                     
                     for idx, row in sub_nakit.iterrows():
@@ -911,8 +954,8 @@ with tab3:
     
     mc1, mc2, mc3 = st.columns(3)
     mc1.metric("Toplam Borç / Kredi", f"₺{toplam_ana_borc:,.2f}")
-    mc2.metric("Ödenen Toplam Tutar", f"₺{toplam_odenen_borc:,.2f}")
-    mc3.metric("Kalan Toplam Borç", f"₺{kalan_toplam_borc:,.2f}", f"-₺{kalan_toplam_borc:,.2f}", delta_color="inverse")
+    mc2.metric("Ödenen Tutar", f"₺{toplam_odenen_borc:,.2f}")
+    mc3.metric("Kalan Borç", f"₺{kalan_toplam_borc:,.2f}", f"-₺{kalan_toplam_borc:,.2f}", delta_color="inverse")
     
     st.divider()
 
@@ -938,7 +981,7 @@ with tab3:
 
     st.subheader("📋 Aktif Borç Listesi")
     if df_borc.empty:
-        st.info("Kayıtlı borç bulunmuyor. Rahatsın! 😎")
+        st.info("Kayıtlı borç bulunmuyor. Tertemiz! 😎")
     else:
         for idx, row in df_borc.iterrows():
             baslik = str(row['baslik'])
@@ -957,12 +1000,12 @@ with tab3:
                 c1, c2, c3 = st.columns([2, 2, 1])
                 with c1:
                     st.markdown(f"### {baslik}")
-                    st.write(f"*Alacaklı/Kurum:* {kisi}")
+                    st.write(f"*Kurum/Kişi:* {kisi}")
                     if aciklama and aciklama.lower() != "nan":
                         st.caption(f"📝 Not: {aciklama}")
                 with c2:
                     st.write(f"*Toplam:* ₺{toplam:,.2f} | *Ödenen:* ₺{odenen_tutar:,.2f}")
-                    st.markdown(f"*Kalan Borç:* <span style='color:#ef4444; font-weight:bold;'>₺{kalan:,.2f}</span>", unsafe_allow_html=True)
+                    st.markdown(f"*Kalan:* <span style='color:#f87171; font-weight:bold;'>₺{kalan:,.2f}</span>", unsafe_allow_html=True)
                     ilerleme = min(odenen_tutar / toplam, 1.0) if toplam > 0 else 0
                     st.progress(ilerleme, text=f"%{ilerleme*100:.0f} Ödendi")
                 with c3:
@@ -983,15 +1026,15 @@ with tab3:
                         st.rerun()
 
     st.divider()
-    st.subheader("⚖️ Borçlar Düşüldükten Sonra Net Servet")
+    st.subheader("⚖️ Net Servet Özeti")
     net_servet = toplam_toplam_varlik - kalan_toplam_borc
     
     st.info(f"""
-    * 🏆 *Gerçek Toplam Varlıklar (Hisse + Nakit):* ₺{toplam_toplam_varlik:,.2f}
-    * 💳 *Kalan Toplam Borçlar:* ₺{kalan_toplam_borc:,.2f}
+    * 🏆 *Toplam Varlıklar (Hisse + Nakit):* ₺{toplam_toplam_varlik:,.2f}
+    * 💳 *Toplam Kalan Borçlar:* ₺{kalan_toplam_borc:,.2f}
     """)
     
     if net_servet >= 0:
-        st.success(f"💚 *BORÇLAR DÜŞÜLDÜKTEN SONRA NET SERVETİN:* *+₺{net_servet:,.2f}*")
+        st.success(f"💚 *NET SERVETİN (Borçlar Düşüldü):* *+₺{net_servet:,.2f}*")
     else:
-        st.error(f"🔴 *BORÇ AÇIĞIN:* *-₺{abs(net_servet):,.2f}*")
+        st.error(f"🔴 *NET BORÇ AÇIĞIN:* *-₺{abs(net_servet):,.2f}*")
