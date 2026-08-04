@@ -141,14 +141,12 @@ def nakit_ekle(tanim, kisi_hesap, tutar, birim, aciklama):
     veri_kaydet("nakitler", df)
 
 def nakit_dus(kisi_hesap_adi, dusulecek_tutar):
-    """Belirtilen kişinin hesabındaki boştaki nakitten alış tutarını düşer."""
     df_nakit = verileri_getir("nakitler")
     if df_nakit.empty:
         return
     
     kalan_dusulecek = safe_float(dusulecek_tutar)
     
-    # Önce tam eşleşen hesaptan düşmeyi dene
     for idx, row in df_nakit.iterrows():
         if row["kisi_hesap"] == kisi_hesap_adi and safe_float(row["tutar"]) > 0:
             mevcut_tutar = safe_float(row["tutar"])
@@ -160,7 +158,6 @@ def nakit_dus(kisi_hesap_adi, dusulecek_tutar):
                 kalan_dusulecek -= mevcut_tutar
                 df_nakit.at[idx, "tutar"] = 0.0
                 
-    # Eğer o hesapta yetmediyse genel "Kendi Borsa Hesabım" veya herhangi birinden düşmeye devam et
     if kalan_dusulecek > 0:
         for idx, row in df_nakit.iterrows():
             if safe_float(row["tutar"]) > 0:
@@ -198,7 +195,6 @@ def veri_ekle_halka_arz_kisi(kod, ad, sahip, lot, maliyet):
     df = pd.concat([df, yeni_veri], ignore_index=True)
     veri_kaydet("portfoy", df)
     
-    # Hisse alındığında ilgili hesaptan nakit düşüşü yapalım
     toplam_maliyet_tutar = int(lot) * safe_float(maliyet)
     kisi_hesap_adi = f"{sahip} Hesabı" if sahip != "Kendim" else "Kendi Borsa Hesabım"
     nakit_dus(kisi_hesap_adi, toplam_maliyet_tutar)
@@ -768,7 +764,7 @@ with tab1:
                     st.markdown(f"*Toplam Net Kâr ({hesap_sayisi} Hesap):* <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
-# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
+# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR (AÇILIR KAPANIR)
 # =========================================================
 with tab2:
     st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
@@ -806,15 +802,10 @@ with tab2:
             sub_nakit = df_nakit[df_nakit["kisi_hesap"] == hesap]
             hesap_toplam = sub_nakit["tutar"].sum()
             
-            with st.container(border=True):
-                hc1, hc2 = st.columns([3, 1])
-                with hc1:
-                    st.markdown(f"### 👤 {hesap}")
-                with hc2:
-                    st.markdown(f"### <span style='color:#10b981;'>₺{hesap_toplam:,.2f}</span>", unsafe_allow_html=True)
-                
-                st.write("---")
+            # Açılır kapanır kutu (expander) yapısı
+            with st.expander(f"👤 {hesap} — Toplam: ₺{hesap_toplam:,.2f}", expanded=False):
                 st.caption("🔍 Bu hesaptaki alt kalemler:")
+                st.write("---")
                 
                 for idx, row in sub_nakit.iterrows():
                     tanim = str(row['tanim'])
