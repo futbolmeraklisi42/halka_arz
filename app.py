@@ -403,6 +403,59 @@ st.markdown("""
         font-weight: bold;
         font-size: 15px;
     }
+
+    /* --- EXPANDER KUTU GÖRÜNÜMÜ (KÜÇÜCÜK OLMAMASI İÇİN) --- */
+    [data-testid="stExpander"] {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(139, 92, 246, 0.25);
+        border-radius: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s ease;
+    }
+    [data-testid="stExpander"]:hover {
+        border-color: rgba(139, 92, 246, 0.6);
+        box-shadow: 0 6px 18px rgba(124, 58, 237, 0.25);
+    }
+    [data-testid="stExpander"] details {
+        padding: 4px 8px;
+    }
+    [data-testid="stExpander"] summary {
+        font-weight: 600;
+        font-size: 16px;
+        color: #f8fafc;
+    }
+
+    /* --- TASARIMSAL SEVİYE / SEKME BUTONLARI --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        background-color: rgba(15, 23, 42, 0.6);
+        padding: 10px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: rgba(30, 41, 59, 0.6);
+        border-radius: 12px;
+        color: #cbd5e1;
+        font-weight: 600;
+        padding: 0 24px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: rgba(79, 70, 229, 0.3);
+        color: white;
+        border-color: rgba(124, 58, 237, 0.4);
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%) !important;
+        color: white !important;
+        border: 1px solid rgba(167, 139, 250, 0.6) !important;
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -764,7 +817,7 @@ with tab1:
                     st.markdown(f"*Toplam Net Kâr ({hesap_sayisi} Hesap):* <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
-# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR (AÇILIR KAPANIR)
+# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
 # =========================================================
 with tab2:
     st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
@@ -802,7 +855,6 @@ with tab2:
             sub_nakit = df_nakit[df_nakit["kisi_hesap"] == hesap]
             hesap_toplam = sub_nakit["tutar"].sum()
             
-            # Açılır kapanır kutu (expander) yapısı
             with st.expander(f"👤 {hesap} — Toplam: ₺{hesap_toplam:,.2f}", expanded=False):
                 st.caption("🔍 Bu hesaptaki alt kalemler:")
                 st.write("---")
