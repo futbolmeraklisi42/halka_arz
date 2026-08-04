@@ -358,14 +358,14 @@ ESKI_HALKA_ARZ_VERISI = [
     {"kod": "SARAE", "ad": "ŞARAE", "maliyet": 70.00, "satis_fiyati": 102.40, "lot": 62 * 4, "sahip": "Ortak (5 Hesap)", "hesap_sayisi": 5}
 ]
 
-# ----------------- CSS / STİL (MOR TONLARDAN ARINDIRILMIŞ) -----------------
+# ----------------- CSS / STİL (LOŞ MOR ÇERÇEVELİ & MODERN BAŞLIKLI) -----------------
 st.markdown("""
 <style>
     .main { background-color: #0b0f19; }
     
     .hero-banner {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(135deg, #0f172a 0%, #161f33 100%);
+        border: 1px solid rgba(147, 51, 234, 0.2);
         border-radius: 20px;
         padding: 22px;
         color: white;
@@ -377,13 +377,13 @@ st.markdown("""
         background: rgba(30, 41, 59, 0.7);
         padding: 18px;
         border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(147, 51, 234, 0.2);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
     
     .badge-sahip { background-color: #334155; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-satildi { background-color: #475569; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-    .badge-eski { background-color: #2563eb; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .badge-eski { background-color: #7c3aed; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
     
     .badge-kar-yesil {
         background-color: rgba(16, 185, 129, 0.15);
@@ -404,18 +404,18 @@ st.markdown("""
         font-size: 15px;
     }
 
-    /* --- EXPANDER KUTU GÖRÜNÜMÜ --- */
+    /* --- EXPANDER KUTU GÖRÜNÜMÜ (LOŞ MOR ÇERÇEVELİ) --- */
     [data-testid="stExpander"] {
-        background: rgba(30, 41, 59, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(20, 24, 38, 0.6);
+        border: 1px solid rgba(147, 51, 234, 0.3);
         border-radius: 16px;
         margin-bottom: 12px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         transition: all 0.3s ease;
     }
     [data-testid="stExpander"]:hover {
-        border-color: rgba(255, 255, 255, 0.2);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+        border-color: rgba(168, 85, 247, 0.6);
+        box-shadow: 0 6px 18px rgba(147, 51, 234, 0.15);
     }
     [data-testid="stExpander"] details {
         padding: 4px 8px;
@@ -426,35 +426,36 @@ st.markdown("""
         color: #f8fafc;
     }
 
-    /* --- TASARIMSAL KUTU SEVİYE / SEKME BUTONLARI --- */
+    /* --- MODERN MİNİMALİST SEKME / TAB TASARIMI (KUTUSUZ & ŞIK) --- */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        background-color: rgba(15, 23, 42, 0.8);
-        padding: 12px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        gap: 8px;
+        background-color: transparent !important;
+        padding: 0px !important;
+        border: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        margin-bottom: 24px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 52px;
-        background-color: rgba(30, 41, 59, 0.8);
-        border-radius: 14px;
-        color: #cbd5e1;
+        height: 45px;
+        background-color: transparent !important;
+        border-radius: 8px 8px 0 0 !important;
+        color: #94a3b8;
         font-weight: 600;
-        padding: 0 24px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
+        padding: 0 20px;
+        border: none !important;
+        box-shadow: none !important;
+        transition: all 0.2s ease;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: rgba(51, 65, 85, 0.9);
-        color: white;
-        border-color: rgba(255, 255, 255, 0.2);
+        color: #f8fafc;
+        background-color: rgba(147, 51, 234, 0.08) !important;
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
-        color: white !important;
-        border: 1px solid rgba(56, 189, 248, 0.5) !important;
-        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.3) !important;
+        background: transparent !important;
+        color: #c084fc !important;
+        border-bottom: 2px solid #a855f7 !important;
+        box-shadow: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -817,7 +818,7 @@ with tab1:
                     st.markdown(f"*Toplam Net Kâr ({hesap_sayisi} Hesap):* <span style='color:{net_kar_renk}; font-weight:bold;'>{net_kar_str}</span>", unsafe_allow_html=True)
 
 # =========================================================
-# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR (AKTİF HİSSELER TARZINDA KUTULAR)
+# TAB 2: BOŞTA DURAN NAKİT & VARLIKLAR
 # =========================================================
 with tab2:
     st.title("💵 Borsa Hesaplarında & Cepte Duran Nakitler")
